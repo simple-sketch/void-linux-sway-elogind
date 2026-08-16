@@ -1,0 +1,1 @@
+# void-linux-sway-elogind
