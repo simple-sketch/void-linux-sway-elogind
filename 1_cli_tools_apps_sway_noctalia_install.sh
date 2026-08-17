@@ -52,7 +52,7 @@ xdg-user-dirs-update
 sudo xbps-install -Sy dejavu-fonts-ttf
 
 # Useful apps and cli tools
-sudo xbps-install -Sy neovide shikane qt6-wayland alacritty nwg-look gvfs wmenu vim Thunar playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox xtools vsv lazygit neovim ghostty rsync yazi bat upower ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick
+sudo xbps-install -Sy stow neovide shikane qt6-wayland alacritty nwg-look gvfs wmenu vim Thunar playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox xtools vsv lazygit neovim ghostty rsync yazi bat upower ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick
 
 # Switch the vim alternatives group from the neovim provider to the vim provider. So that they run own separate commands
 sudo xbps-alternatives -s vim -g vim
@@ -68,10 +68,10 @@ sudo ln -sfn /etc/sv/nanoklogd /var/service/
 # wait for runsvdir to pick the services up instead of guessing at a sleep
 i=0
 while [ "$i" -lt 10 ]; do
-	sudo sv check socklog-unix >/dev/null 2>&1 &&
-		sudo sv check nanoklogd >/dev/null 2>&1 && break
-	i=$((i + 1))
-	sleep 1
+  sudo sv check socklog-unix >/dev/null 2>&1 &&
+    sudo sv check nanoklogd >/dev/null 2>&1 && break
+  i=$((i + 1))
+  sleep 1
 done
 
 sudo sv status socklog-unix || echo "warning: socklog-unix did not come up" >&2
@@ -98,9 +98,9 @@ sudo ln -sfn /etc/sv/dbus /var/service/
 # wait for runsvdir to pick the service up instead of guessing at a sleep
 i=0
 while [ "$i" -lt 10 ]; do
-	sudo sv check dbus >/dev/null 2>&1 && break
-	i=$((i + 1))
-	sleep 1
+  sudo sv check dbus >/dev/null 2>&1 && break
+  i=$((i + 1))
+  sleep 1
 done
 
 sudo sv status dbus || echo "warning: dbus did not come up" >&2
@@ -119,9 +119,9 @@ sudo ln -sfn /etc/sv/elogind /var/service/
 # wait for runsvdir to pick the service up instead of guessing at a sleep
 i=0
 while [ "$i" -lt 10 ]; do
-	sudo sv check elogind >/dev/null 2>&1 && break
-	i=$((i + 1))
-	sleep 1
+  sudo sv check elogind >/dev/null 2>&1 && break
+  i=$((i + 1))
+  sleep 1
 done
 
 sudo sv status elogind || echo "warning: elogind did not come up" >&2
@@ -131,9 +131,9 @@ sudo sv status elogind || echo "warning: elogind did not come up" >&2
 # that it is, that line is what registers the session and creates
 # /run/user/$UID. Nothing else in this setup does, so check rather than assume.
 if ! grep -q 'pam_elogind.so' /etc/pam.d/system-login; then
-	echo "warning: pam_elogind.so is missing from /etc/pam.d/system-login" >&2
-	echo "without it there is no XDG_RUNTIME_DIR and no registered session" >&2
-	echo "add: -session   optional   pam_elogind.so" >&2
+  echo "warning: pam_elogind.so is missing from /etc/pam.d/system-login" >&2
+  echo "without it there is no XDG_RUNTIME_DIR and no registered session" >&2
+  echo "add: -session   optional   pam_elogind.so" >&2
 fi
 
 # elogind ships udev rules (70-uaccess, 71-seat, 73-seat-late, 70-power-switch)
@@ -152,9 +152,9 @@ sudo ln -sfn /etc/sv/polkitd /var/service/
 # wait for runsvdir to pick the service up instead of guessing at a sleep
 i=0
 while [ "$i" -lt 10 ]; do
-	sudo sv check polkitd >/dev/null 2>&1 && break
-	i=$((i + 1))
-	sleep 1
+  sudo sv check polkitd >/dev/null 2>&1 && break
+  i=$((i + 1))
+  sleep 1
 done
 
 sudo sv status polkitd || echo "warning: polkitd did not come up" >&2
