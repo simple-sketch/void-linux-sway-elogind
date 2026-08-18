@@ -223,6 +223,9 @@ sudo xbps-install -Sy noctalia
 sudo xbps-install -Sy flatpak
 sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
+# install waterfox
+sudo yes | flatpak install flathub net.waterfox.waterfox
+
 ####################################################################################################################################################################################################
 
 # tlp service run and set to power-saver
