@@ -88,7 +88,7 @@ sudo xbps-install -Sy xdg-user-dirs xdg-user-dirs-gtk
 xdg-user-dirs-update
 
 # https://docs.voidlinux.org/config/graphical-session/fonts.html
-sudo xbps-install -Sy dejavu-fonts-ttf
+sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
 
 # Useful apps and cli tools. git and stow are what the manual dotfiles step
 # needs: git is not a base-devel dependency on Void, so it is named explicitly.
