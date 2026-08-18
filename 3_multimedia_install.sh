@@ -6,7 +6,8 @@
 #
 #   pipewire starts from sway   elogind is a seat and session manager, not a
 #                               service manager, so there is no user runsvdir to
-#                               drop a run script into. "exec pipewire" lives in
+#                               drop a run script into. The exec of
+#                               sway/scripts/start-audio.sh lives in
 #                               sway/elogind_config, which script 2 deploys, so
 #                               this script only sets up what that exec needs
 #   no audio group              elogind's 70-uaccess.rules put an ACL for the
@@ -87,23 +88,39 @@ echo "alsa clients routed through pipewire via /etc/alsa/conf.d"
 
 #####################################################################
 
-# pipewire itself is started by "exec pipewire" in sway/elogind_config, not by
-# anything here. The single exec is enough because of the context.exec drop-ins
-# above: wireplumber and pipewire-pulse come up as its children. It has to be
-# started from inside sway rather than from .bash_profile so that it inherits
-# DBUS_SESSION_BUS_ADDRESS from dbus-run-session and WAYLAND_DISPLAY from sway.
+# pipewire itself is started by sway/scripts/start-audio.sh, exec'd from
+# sway/elogind_config, not by anything here. That single exec is enough because
+# of the context.exec drop-ins above: wireplumber and pipewire-pulse come up as
+# its children. It has to be started from inside sway rather than from
+# .bash_profile so that it inherits DBUS_SESSION_BUS_ADDRESS from
+# dbus-run-session and WAYLAND_DISPLAY from sway.
+#
+# That script pkills any pipewire and wireplumber left over from an earlier sway
+# session before starting its own. sway does not kill what it execs, so without
+# the reap a second login without a reboot leaves two of each on one graph, and
+# two wireplumbers is enough to break bluetooth audio: the stale one keeps the
+# bluez media endpoints it registered with bluetoothd, wins the A2DP handshake
+# and then answers on a session bus that no longer exists, so the headset
+# connects with no output sink and only its mic shows up.
 #
 # Tradeoff against the turnstile variant, which supervises pipewire with runit:
 # nothing restarts this on crash. If audio disappears, restart it by hand with
-#   pipewire &
+#   ~/.config/sway/scripts/start-audio.sh &
 # A sway reload will not do it, "exec" only runs at session start.
 SWAY_CONFIG="$USER_HOME/.config/sway/config"
+AUDIO_START="$USER_HOME/.config/sway/scripts/start-audio.sh"
 
-if ! grep -q '^exec pipewire' "$SWAY_CONFIG" 2>/dev/null; then
-	echo "warning: no 'exec pipewire' in $SWAY_CONFIG" >&2
+if ! grep -q 'scripts/start-audio.sh' "$SWAY_CONFIG" 2>/dev/null; then
+	echo "warning: nothing execs scripts/start-audio.sh in $SWAY_CONFIG" >&2
 	echo "that line comes from sway/elogind_config, deployed by" >&2
 	echo "elogind_2_after_restart_env_prepare.sh -- run it, or add the exec" >&2
 	echo "by hand, otherwise nothing starts pipewire with the session" >&2
+fi
+
+if [ ! -x "$AUDIO_START" ]; then
+	echo "warning: $AUDIO_START is missing or not executable" >&2
+	echo "it ships in the sway dotfiles package that script 2 links into" >&2
+	echo "place -- without it the exec in the sway config starts nothing" >&2
 fi
 
 sudo chown -R "$REAL_USER:$REAL_USER" "$USER_HOME/.config"
