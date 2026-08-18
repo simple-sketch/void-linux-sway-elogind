@@ -228,10 +228,9 @@ sudo yes | flatpak install flathub net.waterfox.waterfox
 
 ####################################################################################################################################################################################################
 
-# tlp service run and set to power-saver
+# tlp service install and  run 
 sudo xbps-install -Sy tlp
 sudo ln -sfn /etc/sv/tlp /var/service/
-sudo tlp power-saver
 
 # automounter. Thunar mounting removable media needs no password because polkit
 # grants udisks2 actions to the active local session, which is exactly what
@@ -241,7 +240,8 @@ sudo tlp power-saver
 # started on demand through /usr/share/dbus-1/system-services/org.freedesktop.UDisks2.service.
 # Linking one anyway leaves a dangling symlink that runsvdir complains about on
 # every scan.
-sudo xbps-install -Sy udisks2
+
+# sudo xbps-install -Sy udisks2
 
 ####################################################################################################################################################################################################
 
