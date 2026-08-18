@@ -92,7 +92,7 @@ sudo xbps-install -Sy dejavu-fonts-ttf
 
 # Useful apps and cli tools. git and stow are what the manual dotfiles step
 # needs: git is not a base-devel dependency on Void, so it is named explicitly.
-sudo xbps-install -Sy delta git eza bash-completion stow neovide shikane qt6-wayland alacritty nwg-look gvfs wmenu vim Thunar playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox xtools vsv lazygit neovim ghostty rsync yazi bat upower ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick
+sudo xbps-install -Sy nodejs delta git eza bash-completion stow neovide shikane qt6-wayland alacritty nwg-look gvfs wmenu vim Thunar playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox xtools vsv lazygit neovim ghostty rsync yazi bat upower ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick
 
 # Switch the vim alternatives group from the neovim provider to the vim provider. So that they run own separate commands
 sudo xbps-alternatives -s vim -g vim
