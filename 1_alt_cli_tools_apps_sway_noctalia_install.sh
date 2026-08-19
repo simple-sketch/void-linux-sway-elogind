@@ -67,7 +67,10 @@ REAL_USER="${SUDO_USER:-$(id -un)}"
 # Not $HOME: under sudo that is /root, and the directories below have to be
 # created in the home of the user who will actually log in.
 USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
-[ -n "$USER_HOME" ] || { echo "cannot resolve home directory for $REAL_USER" >&2; exit 1; }
+[ -n "$USER_HOME" ] || {
+  echo "cannot resolve home directory for $REAL_USER" >&2
+  exit 1
+}
 
 # https://docs.voidlinux.org/xbps/index.html#updating
 sudo xbps-install -Syu xbps
@@ -88,7 +91,7 @@ sudo xbps-install -Sy xdg-user-dirs xdg-user-dirs-gtk
 xdg-user-dirs-update
 
 # https://docs.voidlinux.org/config/graphical-session/fonts.html
-sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf nerd-fonts
+sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
 
 # Useful apps and cli tools. git and stow are what the manual dotfiles step
 # needs: git is not a base-devel dependency on Void, so it is named explicitly.
@@ -228,7 +231,7 @@ sudo flatpak --assumeyes install flathub net.waterfox.waterfox
 
 ####################################################################################################################################################################################################
 
-# tlp service install and  run 
+# tlp service install and  run
 sudo xbps-install -Sy tlp
 sudo ln -sfn /etc/sv/tlp /var/service/
 
@@ -301,8 +304,8 @@ BACKUP_DIR="$USER_HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 for name in .bashrc .bash_profile .inputrc .vimrc; do
   target="$USER_HOME/$name"
 
-  [ -f "$target" ] || continue          # -f follows symlinks, so also skips a
-  [ -L "$target" ] && continue          # link that resolves to a real file
+  [ -f "$target" ] || continue # -f follows symlinks, so also skips a
+  [ -L "$target" ] && continue # link that resolves to a real file
 
   mkdir -p "$BACKUP_DIR"
   mv "$target" "$BACKUP_DIR/$name"
