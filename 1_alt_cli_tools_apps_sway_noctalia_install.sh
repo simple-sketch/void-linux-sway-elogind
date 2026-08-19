@@ -224,7 +224,7 @@ sudo xbps-install -Sy flatpak
 sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
 # install waterfox
-sudo yes | flatpak install flathub net.waterfox.waterfox
+sudo flatpak --assumeyes install flathub net.waterfox.waterfox
 
 ####################################################################################################################################################################################################
 
