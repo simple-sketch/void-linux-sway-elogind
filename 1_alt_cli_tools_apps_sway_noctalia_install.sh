@@ -189,7 +189,6 @@ sudo udevadm trigger
 # polkit is what turns "the user has an active local session" into permission to
 # call loginctl poweroff/reboot/suspend. Without it those calls fail for anyone
 # but root.
-sudo xbps-install -Sy polkit
 sudo ln -sfn /etc/sv/polkitd /var/service/
 
 # wait for runsvdir to pick the service up instead of guessing at a sleep
@@ -235,16 +234,10 @@ sudo flatpak --assumeyes install flathub net.waterfox.waterfox
 sudo xbps-install -Sy tlp
 sudo ln -sfn /etc/sv/tlp /var/service/
 
-# automounter. Thunar mounting removable media needs no password because polkit
-# grants udisks2 actions to the active local session, which is exactly what
-# elogind is there to establish.
-#
-# No /var/service symlink: the udisks2 package ships no /etc/sv/udisks2, it is
-# started on demand through /usr/share/dbus-1/system-services/org.freedesktop.UDisks2.service.
-# Linking one anyway leaves a dangling symlink that runsvdir complains about on
-# every scan.
+####################################################################################################################################################################################################
 
-# sudo xbps-install -Sy udisks2
+sudo xbps-install -S zramen
+sudo ln -sfn /etc/sv/zramen /var/service/
 
 ####################################################################################################################################################################################################
 
