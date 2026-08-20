@@ -11,7 +11,7 @@ packages, and are symlinked into `~` rather than copied, so editing
 ## Install
 
 ```sh
-sh 1_alt_cli_tools_apps_sway_noctalia_install.sh
+sh install_cli_tools_apps_sway_noctalia.sh
 sudo reboot
 git clone https://github.com/simple-sketch/dotfiles ~/dotfiles
 cd ~/dotfiles && stow */
@@ -20,8 +20,9 @@ cd ~/dotfiles && stow */
 Then, optional:
 
 ```sh
-sh 3_multimedia_install.sh   # audio and bluetooth
-sh 4_iwd.sh                  # wifi, if you are not using NetworkManager
+sh flatpak_flathub_install.sh  # Flatpak, Flathub and Waterfox
+sh multimedia_install.sh       # audio and bluetooth
+sh iwd.sh                      # wifi, if you are not using NetworkManager
 ```
 
 Log out and back in to **tty1**. `.bash_profile` starts sway from there, no
@@ -29,9 +30,9 @@ display manager involved.
 
 ## What the install script does
 
-`1_alt_cli_tools_apps_sway_noctalia_install.sh` installs the packages, Intel
-graphics, portals, socklog, dbus, elogind, polkit, noctalia, flatpak, tlp and
-udisks2, and then prepares the home directory for the stow that follows:
+`install_cli_tools_apps_sway_noctalia.sh` installs the packages, Intel
+graphics, portals, socklog, dbus, elogind, polkit, noctalia, tlp and udisks2,
+and then prepares the home directory for the stow that follows:
 
 - **creates `~/.config`, `~/.local/{share,state,bin}`, `~/Pictures/Screenshots`**
   — an existing directory is what makes stow descend into it and link the files
@@ -93,8 +94,5 @@ carries `pam_turnstile.so` and `pam_elogind.so` in the same session stack, each
 prefixed with `-` so it is skipped while its package is absent, and installing
 both leaves two things racing to own the session.
 
-`1_cli_tools_apps_sway_noctalia_install.sh` and
-`2_after_restart_env_prepare.sh` are the scripted alternative to the above:
-script 2 clones the dotfiles repo and stows it for you. Run that pair or
-`1_alt_`, never both, and note they carry the same package list, so a package
-added to one has to be added to the other.
+Flatpak is optional and is installed separately by
+`flatpak_flathub_install.sh`, which also adds Flathub and installs Waterfox.

@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Optional Flatpak applications. Kept separate from the main desktop install so
+# Flatpak and the Flathub remote are only configured when wanted.
+
+set -eu
+
+# Install Flatpak and add the Flathub repository.
+sudo xbps-install -Sy flatpak
+sudo flatpak remote-add --if-not-exists flathub \
+  https://dl.flathub.org/repo/flathub.flatpakrepo
+
+# Install Waterfox from Flathub.
+sudo flatpak --assumeyes install flathub net.waterfox.waterfox

@@ -221,15 +221,6 @@ sudo xbps-install -Sy noctalia
 
 ####################################################################################################################################################################################################
 
-# install flatpak and add flathub repo
-sudo xbps-install -Sy flatpak
-sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-
-# install waterfox
-sudo flatpak --assumeyes install flathub net.waterfox.waterfox
-
-####################################################################################################################################################################################################
-
 # tlp service install and  run
 sudo xbps-install -Sy tlp
 sudo ln -sfn /etc/sv/tlp /var/service/
