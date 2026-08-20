@@ -95,7 +95,7 @@ sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
 
 # Useful apps and cli tools. git and stow are what the manual dotfiles step
 # needs: git is not a base-devel dependency on Void, so it is named explicitly.
-sudo xbps-install -Sy Thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin nodejs delta git eza bash-completion stow neovide shikane alacritty gvfs wmenu vim playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick
+sudo xbps-install -Sy kitty Thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin nodejs delta git eza bash-completion stow neovide shikane alacritty gvfs wmenu vim playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick
 
 # Switch the vim alternatives group from the neovim provider to the vim provider. So that they run own separate commands
 sudo xbps-alternatives -s vim -g vim
@@ -167,6 +167,9 @@ while [ "$i" -lt 10 ]; do
   sleep 1
 done
 
+sudo usermod -aG video "$REAL_USER"
+#sudo usermod -aG input "$REAL_USER"
+
 sudo sv status elogind || echo "warning: elogind did not come up" >&2
 
 # Void's pam-base already lists pam_elogind.so in the login stack, prefixed with
@@ -229,18 +232,6 @@ sudo ln -sfn /etc/sv/tlp /var/service/
 
 sudo xbps-install -S zramen
 sudo ln -sfn /etc/sv/zramen /var/service/
-
-####################################################################################################################################################################################################
-
-# Device access under elogind comes from the uaccess udev rules above, not from
-# group membership, so no audio group here. video and input are the exception:
-# brightnessctl has no logind support in the Void build, it writes sysfs
-# directly, and /usr/lib/udev/rules.d/90-brightnessctl.rules chgrps
-# /sys/class/backlight/*/brightness to video and /sys/class/leds/*/brightness to
-# input.
-sudo usermod -aG video "$REAL_USER"
-
-#sudo usermod -aG input "$REAL_USER"
 
 ####################################################################################################################################################################################################
 
