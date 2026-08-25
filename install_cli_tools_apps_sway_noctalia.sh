@@ -95,7 +95,7 @@ sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
 
 # Useful apps and cli tools. git and stow are what the manual dotfiles step
 # needs: git is not a base-devel dependency on Void, so it is named explicitly.
-sudo xbps-install -Sy bibata-modern-ice ddcutil kitty Thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin nodejs delta git eza bash-completion stow neovide shikane alacritty gvfs wmenu vim playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick
+sudo xbps-install -Sy ddcutil kitty Thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin nodejs delta git eza bash-completion stow neovide shikane alacritty gvfs wmenu vim playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick
 
 # Switch the vim alternatives group from the neovim provider to the vim provider. So that they run own separate commands
 sudo xbps-alternatives -s vim -g vim
@@ -214,13 +214,15 @@ echo "after reboot, check with: loginctl session-status"
 
 ####################################################################################################################################################################################################
 
-# Noctalia install
+# Voiders community packages: Noctalia and the Bibata cursor theme.
+# Both packages come from repo.voiders.dev, so this repository must be enabled
+# before trying to install either one.
 # 1. Add the repo config
 echo "repository=https://repo.voiders.dev" | sudo tee /etc/xbps.d/10-voiders-community.conf
 # 2. Sync + import key without prompting
 yes | sudo xbps-install -Sy
-# 3. Install noctalia  package
-sudo xbps-install -Sy noctalia
+# 3. Install the community packages
+sudo xbps-install -Sy noctalia bibata-modern-ice
 
 ####################################################################################################################################################################################################
 
