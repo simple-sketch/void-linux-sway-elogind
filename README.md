@@ -30,21 +30,26 @@ display manager involved.
 
 ## What the install script does
 
-`install_cli_tools_apps_sway_noctalia.sh` installs the packages, Intel
-graphics, portals, socklog, dbus, elogind, polkit, noctalia, tlp and udisks2,
-and then prepares the home directory for the stow that follows:
+`install_cli_tools_apps_sway_noctalia.sh` targets a plain Void installation
+with Intel graphics. It:
 
-- **creates `~/.config`, `~/.local/{share,state,bin}`, and
-  `~/Pictures/{Screenshots,Wallpapers}`** — the Wallpapers directory is ready
-  for Noctalia's wallpaper plugin; an existing directory is also what makes
-  stow descend into it and link the files inside, see the folding note below
-- **moves the `/etc/skel` dotfiles aside** — `.bashrc`, `.bash_profile` and
-  `.inputrc` go to `~/.dotfiles-backup/<timestamp>/`, because stow will not
-  overwrite them and will not stow anything else while they are there
-- **installs git**, which is not a `base-devel` dependency on Void
+- updates XBPS and enables the official nonfree and multilib repositories
+- installs the Intel graphics stack, Sway, portals, fonts, desktop apps, and
+  CLI tools, including `git` and GNU stow
+- enables socklog, D-Bus, elogind, polkit, and TLP
+- adds the Voiders repository and installs Noctalia and the Bibata cursor theme
+- creates `~/.config`, `~/.local/{share,state,bin}`, and
+  `~/Pictures/{Screenshots,Wallpapers}` before stow to prevent folding
+- moves `.bashrc`, `.bash_profile`, `.inputrc`, and `.vimrc` to
+  `~/.dotfiles-backup/<timestamp>/` when they are regular files that would
+  block stow
 
-Re-running it is safe: it only moves regular files, so stow symlinks from an
-earlier run are left alone.
+D-Bus starts before elogind. At login, `pam_elogind` registers the session and
+creates `/run/user/<uid>`; elogind's udev rules grant device access, and polkit
+authorizes power actions for the active session. The Sway config starts
+`xfce-polkit` when a graphical authentication prompt is needed.
+
+Re-running the script leaves existing stow symlinks alone.
 
 ## stow notes
 
@@ -62,7 +67,7 @@ the sway package.
 
 **One conflict aborts everything.** stow will not overwrite a regular file it
 does not own, and it stops the whole run on the first one, having linked
-nothing. The three `/etc/skel` files are handled for you. For anything else it
+nothing. The four `/etc/skel` files are handled for you. For anything else it
 reports:
 
 ```sh
