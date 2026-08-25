@@ -1,7 +1,7 @@
 #!/bin/sh
 
-# Install CLI tools, desktop apps, and an elogind-based Sway session on Void.
-# Target: a plain Void installation with Intel graphics.
+# Install CLI tools and desktop apps for an elogind-based Sway session on
+# Void Linux. Target: a plain installation with Intel graphics.
 # This script also prepares the user's home directory for GNU stow.
 # Do not combine this setup with seatd/turnstile.
 
@@ -12,8 +12,8 @@ REAL_USER="${SUDO_USER:-$(id -un)}"
 # Resolve the login user's home; sudo may set HOME to /root.
 USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
 [ -n "$USER_HOME" ] || {
-  echo "cannot resolve home directory for $REAL_USER" >&2
-  exit 1
+ echo "cannot resolve home directory for $REAL_USER" >&2
+ exit 1
 }
 
 # Update XBPS.
@@ -23,16 +23,23 @@ sudo xbps-install -Syu
 
 # Enable official nonfree and multilib repositories.
 # https://docs.voidlinux.org/xbps/repositories/index.html#nonfree
-sudo xbps-install -Sy void-repo-nonfree void-repo-multilib void-repo-multilib-nonfree
+sudo xbps-install -Sy \
+ void-repo-nonfree void-repo-multilib \
+ void-repo-multilib-nonfree
 sudo xbps-install -Syu
 
 # Intel graphics stack.
 # https://docs.voidlinux.org/config/graphical-session/graphics-drivers/intel.html
-sudo xbps-install -Sy linux-firmware-intel mesa-dri vulkan-loader mesa-vulkan-intel intel-video-accel intel-media-driver
+sudo xbps-install -Sy \
+ linux-firmware-intel mesa-dri vulkan-loader \
+ mesa-vulkan-intel intel-video-accel \
+ intel-media-driver
 
 # Desktop portals and utilities.
 # https://docs.voidlinux.org/config/graphical-session/portals.html
-sudo xbps-install -Sy xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk xdg-utils
+sudo xbps-install -Sy \
+ xdg-desktop-portal xdg-desktop-portal-wlr \
+ xdg-desktop-portal-gtk xdg-utils
 
 # XDG user directories.
 sudo xbps-install -Sy xdg-user-dirs xdg-user-dirs-gtk
@@ -40,10 +47,22 @@ xdg-user-dirs-update
 
 # Fonts.
 # https://docs.voidlinux.org/config/graphical-session/fonts.html
-sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
+sudo xbps-install -Sy \
+ dejavu-fonts-ttf noto-fonts-emoji \
+ noto-fonts-ttf
 
 # Desktop apps and CLI tools, including git and stow for dotfiles.
-sudo xbps-install -Sy ddcutil kitty Thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin nodejs delta git eza bash-completion stow neovide shikane alacritty gvfs wmenu vim playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick
+sudo xbps-install -Sy \
+ ddcutil kitty Thunar thunar-volman \
+ thunar-archive-plugin thunar-media-tags-plugin \
+ nodejs delta git eza bash-completion stow \
+ neovide shikane alacritty gvfs wmenu vim \
+ playerctl libnotify grim slurp grimshot satty \
+ flameshot btop fastfetch brightnessctl base-devel \
+ wl-clipboard sway foot firefox vlc xtools vsv \
+ lazygit neovim ghostty rsync yazi bat upower \
+ ffmpeg 7zip unzip zip jq poppler fd ripgrep \
+ fzf zoxide resvg ImageMagick
 
 # Keep Vim's alternatives on Vim rather than Neovim.
 sudo xbps-alternatives -s vim -g vim
@@ -58,20 +77,24 @@ sudo ln -sfn /etc/sv/nanoklogd /var/service/
 # Wait up to 10 seconds for runsvdir.
 i=0
 while [ "$i" -lt 10 ]; do
-  sudo sv check socklog-unix >/dev/null 2>&1 &&
-    sudo sv check nanoklogd >/dev/null 2>&1 && break
-  i=$((i + 1))
-  sleep 1
+ sudo sv check socklog-unix >/dev/null 2>&1 &&
+  sudo sv check nanoklogd >/dev/null 2>&1 && break
+ i=$((i + 1))
+ sleep 1
 done
 
-sudo sv status socklog-unix || echo "warning: socklog-unix did not come up" >&2
-sudo sv status nanoklogd || echo "warning: nanoklogd did not come up" >&2
+sudo sv status socklog-unix ||
+ echo "warning: socklog-unix did not come up" >&2
+sudo sv status nanoklogd ||
+ echo "warning: nanoklogd did not come up" >&2
 
 # Grant the login user access to logs.
 sudo usermod -aG socklog "$REAL_USER"
 
-echo "socklog logging enabled, logs are under /var/log/socklog"
-echo "log out and back in for the socklog group to apply, then read logs with svlogtail"
+echo "socklog logging enabled"
+echo "logs are under /var/log/socklog"
+echo "log out and back in for the socklog group to apply"
+echo "then read logs with svlogtail"
 
 # D-Bus
 # Start the system bus before elogind.
@@ -82,12 +105,13 @@ sudo ln -sfn /etc/sv/dbus /var/service/
 # Wait up to 10 seconds for runsvdir.
 i=0
 while [ "$i" -lt 10 ]; do
-  sudo sv check dbus >/dev/null 2>&1 && break
-  i=$((i + 1))
-  sleep 1
+ sudo sv check dbus >/dev/null 2>&1 && break
+ i=$((i + 1))
+ sleep 1
 done
 
-sudo sv status dbus || echo "warning: dbus did not come up" >&2
+sudo sv status dbus ||
+ echo "warning: dbus did not come up" >&2
 
 # Session, seat, and power management
 # https://docs.voidlinux.org/config/session-management.html
@@ -98,20 +122,23 @@ sudo ln -sfn /etc/sv/elogind /var/service/
 # Wait up to 10 seconds for runsvdir.
 i=0
 while [ "$i" -lt 10 ]; do
-  sudo sv check elogind >/dev/null 2>&1 && break
-  i=$((i + 1))
-  sleep 1
+ sudo sv check elogind >/dev/null 2>&1 && break
+ i=$((i + 1))
+ sleep 1
 done
 
 sudo usermod -aG video "$REAL_USER"
 
-sudo sv status elogind || echo "warning: elogind did not come up" >&2
+sudo sv status elogind ||
+ echo "warning: elogind did not come up" >&2
 
 # pam_elogind registers sessions and creates /run/user/$UID.
 if ! grep -q 'pam_elogind.so' /etc/pam.d/system-login; then
-  echo "warning: pam_elogind.so is missing from /etc/pam.d/system-login" >&2
-  echo "without it there is no XDG_RUNTIME_DIR and no registered session" >&2
-  echo "add: -session   optional   pam_elogind.so" >&2
+ echo "warning: pam_elogind.so is missing from" >&2
+ echo "  /etc/pam.d/system-login" >&2
+ echo "without it there is no XDG_RUNTIME_DIR" >&2
+ echo "and no registered session" >&2
+ echo "add: -session   optional   pam_elogind.so" >&2
 fi
 
 # Apply elogind's seat and device-access rules now.
@@ -124,12 +151,13 @@ sudo ln -sfn /etc/sv/polkitd /var/service/
 # Wait up to 10 seconds for runsvdir.
 i=0
 while [ "$i" -lt 10 ]; do
-  sudo sv check polkitd >/dev/null 2>&1 && break
-  i=$((i + 1))
-  sleep 1
+ sudo sv check polkitd >/dev/null 2>&1 && break
+ i=$((i + 1))
+ sleep 1
 done
 
-sudo sv status polkitd || echo "warning: polkitd did not come up" >&2
+sudo sv status polkitd ||
+ echo "warning: polkitd did not come up" >&2
 
 # GTK authentication agent; started by the Sway config.
 sudo xbps-install -Sy xfce-polkit
@@ -139,7 +167,8 @@ echo "after reboot, check with: loginctl session-status"
 
 # Voiders packages
 # Enable the repository for Noctalia and Bibata.
-echo "repository=https://repo.voiders.dev" | sudo tee /etc/xbps.d/10-voiders-community.conf
+echo "repository=https://repo.voiders.dev" |
+ sudo tee /etc/xbps.d/10-voiders-community.conf
 # Import the repository key during the initial sync.
 yes | sudo xbps-install -Sy
 sudo xbps-install -Sy noctalia bibata-modern-ice
@@ -151,57 +180,86 @@ sudo ln -sfn /etc/sv/tlp /var/service/
 # Home directory
 # Create parent directories before stow to prevent directory folding.
 for dir in \
-  "$USER_HOME/.config" \
-  "$USER_HOME/.local/share" \
-  "$USER_HOME/.local/state" \
-  "$USER_HOME/.local/bin" \
-  "$USER_HOME/Pictures/Screenshots" \
-  "$USER_HOME/Pictures/Wallpapers"; do
+ "$USER_HOME/.config" \
+ "$USER_HOME/.local/share" \
+ "$USER_HOME/.local/state" \
+ "$USER_HOME/.local/bin" \
+ "$USER_HOME/Pictures/Screenshots" \
+ "$USER_HOME/Pictures/Wallpapers"; do
 
-  mkdir -p "$dir"
+ mkdir -p "$dir"
 done
 
 # Restore ownership when invoked as root.
 if [ "$(id -u)" -eq 0 ]; then
-  chown -R "$REAL_USER" "$USER_HOME/.config" "$USER_HOME/.local" "$USER_HOME/Pictures"
+ chown -R "$REAL_USER" \
+  "$USER_HOME/.config" \
+  "$USER_HOME/.local" \
+  "$USER_HOME/Pictures"
 fi
 
 # Back up regular skel dotfiles that would conflict with stow.
 BACKUP_DIR="$USER_HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 
 for name in .bashrc .bash_profile .inputrc .vimrc; do
-  target="$USER_HOME/$name"
+ target="$USER_HOME/$name"
 
-  [ -f "$target" ] || continue
-  [ -L "$target" ] && continue # Preserve existing stow links.
+ [ -f "$target" ] || continue
+ [ -L "$target" ] && continue # Preserve existing stow links.
 
-  mkdir -p "$BACKUP_DIR"
-  mv "$target" "$BACKUP_DIR/$name"
-  echo "moved $target out of stow's way, kept at $BACKUP_DIR/$name"
+ mkdir -p "$BACKUP_DIR"
+ mv "$target" "$BACKUP_DIR/$name"
+ echo "moved $target out of stow's way"
+ echo "backup: $BACKUP_DIR/$name"
 done
 
 if [ -d "$BACKUP_DIR" ] && [ "$(id -u)" -eq 0 ]; then
-  chown -R "$REAL_USER" "$USER_HOME/.dotfiles-backup"
+ chown -R "$REAL_USER" "$USER_HOME/.dotfiles-backup"
 fi
 
 # Next steps
-cat <<EOF
+cat <<'EOF'
 
-PLEASE RESTART THE SYSTEM, THEN:
+NEXT STEPS
+==========
 
-  git clone https://github.com/simple-sketch/dotfiles ~/dotfiles
-  cd ~/dotfiles && stow */
+1. Restart the system.
 
-"stow */" and not "stow .": with a bare dot stow treats the whole repo as one
-package and links ~/bashrc -> dotfiles/bashrc, giving you no ~/.bashrc and no
-~/.config links at all. The trailing slash on the glob is what keeps .git out.
+2. Clone the dotfiles repository:
 
-Then log out and back in to tty1, .bash_profile starts sway from there.
+   git clone \
+     https://github.com/simple-sketch/dotfiles \
+     ~/dotfiles
 
-Worth checking after the reboot, in this order, each explains the next failure:
+3. Install the dotfiles:
 
-  loginctl session-status         the session is registered and active
-  ls -d /run/user/\$(id -u)        pam_elogind created XDG_RUNTIME_DIR
-  ls -l ~/.bashrc                 points into ~/dotfiles
-  less ~/.local/state/sway.log    only exists once sway has been started once
+   cd ~/dotfiles
+   stow */
+
+Use "stow */", not "stow .". A bare dot makes stow
+use the whole repository as one package. For example:
+
+   ~/bashrc -> dotfiles/bashrc
+
+It does not create ~/.bashrc or the expected
+~/.config links. The slash in "*/" also keeps .git out.
+
+4. Log out and back in to tty1. .bash_profile starts Sway.
+
+POST-REBOOT CHECKS
+==================
+
+Run in order; each check helps explain the next failure.
+
+Session is registered and active:
+   loginctl session-status
+
+pam_elogind created XDG_RUNTIME_DIR:
+   ls -d /run/user/$(id -u)
+
+.bashrc points into ~/dotfiles:
+   ls -l ~/.bashrc
+
+Sway has started at least once:
+   less ~/.local/state/sway.log
 EOF
