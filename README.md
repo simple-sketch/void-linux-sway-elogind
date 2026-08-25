@@ -20,10 +20,16 @@ cd ~/dotfiles && stow */
 Then, optional:
 
 ```sh
-sh flatpak_flathub_install.sh  # Flatpak, Flathub and Waterfox
-sh multimedia_install.sh       # audio and bluetooth
-sh iwd.sh                      # wifi, if you are not using NetworkManager
+sh flatpak_flathub_install.sh   # Flatpak, Flathub and Waterfox
+sh multimedia_install.sh        # audio and bluetooth
+sh networkmanager_install.sh    # Ethernet + Wi-Fi in Noctalia (recommended)
+# Or: sh iwd.sh                 # standalone Wi-Fi; do not enable both backends
 ```
+
+`networkmanager_install.sh` disables the separate `iwd`, `wpa_supplicant`, and
+`dhcpcd` services before enabling NetworkManager. NetworkManager then owns both
+Ethernet and Wi-Fi, allowing Noctalia's network widget to scan, connect, and
+show wired status through the same backend.
 
 Log out and back in to **tty1**. `.bash_profile` starts sway from there, no
 display manager involved.
