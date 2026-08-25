@@ -34,9 +34,10 @@ display manager involved.
 graphics, portals, socklog, dbus, elogind, polkit, noctalia, tlp and udisks2,
 and then prepares the home directory for the stow that follows:
 
-- **creates `~/.config`, `~/.local/{share,state,bin}`, `~/Pictures/Screenshots`**
-  — an existing directory is what makes stow descend into it and link the files
-  inside, see the folding note below
+- **creates `~/.config`, `~/.local/{share,state,bin}`, and
+  `~/Pictures/{Screenshots,Wallpapers}`** — the Wallpapers directory is ready
+  for Noctalia's wallpaper plugin; an existing directory is also what makes
+  stow descend into it and link the files inside, see the folding note below
 - **moves the `/etc/skel` dotfiles aside** — `.bashrc`, `.bash_profile` and
   `.inputrc` go to `~/.dotfiles-backup/<timestamp>/`, because stow will not
   overwrite them and will not stow anything else while they are there

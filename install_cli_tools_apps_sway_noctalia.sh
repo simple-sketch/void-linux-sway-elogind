@@ -238,8 +238,9 @@ sudo ln -sfn /etc/sv/tlp /var/service/
 # directory is what makes stow descend into it and link the files inside. A
 # missing one makes it fold instead, replacing the directory with a symlink to
 # a single package. ~/.config is the one that matters most, ~/.local/state is
-# where .bash_profile writes sway.log, and Screenshots is what the flameshot and
-# grim bindings save into.
+# where .bash_profile writes sway.log, Screenshots is what the flameshot and
+# grim bindings save into, and Wallpapers is used by Noctalia's wallpaper
+# plugin.
 #
 # One level down is a different matter: ~/.config/sway is *meant* to become a
 # symlink to the sway package, and it does, because it does not exist yet.
@@ -248,7 +249,8 @@ for dir in \
   "$USER_HOME/.local/share" \
   "$USER_HOME/.local/state" \
   "$USER_HOME/.local/bin" \
-  "$USER_HOME/Pictures/Screenshots"; do
+  "$USER_HOME/Pictures/Screenshots" \
+  "$USER_HOME/Pictures/Wallpapers"; do
 
   mkdir -p "$dir"
 done
