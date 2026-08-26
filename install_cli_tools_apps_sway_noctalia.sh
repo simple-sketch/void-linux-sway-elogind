@@ -53,7 +53,7 @@ sudo xbps-install -Sy \
 
 # Desktop apps and CLI tools, including git and stow for dotfiles.
 sudo xbps-install -Sy \
-  xfce4-settings ddcutil kitty Thunar thunar-volman \
+  ddcutil kitty Thunar thunar-volman \
   thunar-archive-plugin thunar-media-tags-plugin \
   nodejs delta git eza bash-completion stow \
   neovide shikane alacritty gvfs wmenu vim \
