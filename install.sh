@@ -70,51 +70,34 @@ sudo xbps-install -Syu xbps
 sudo xbps-install -Syu
 
 # Enable official nonfree and multilib repositories.
-sudo xbps-install -Sy \
-  void-repo-nonfree void-repo-multilib \
-  void-repo-multilib-nonfree
+sudo xbps-install -Sy void-repo-nonfree void-repo-multilib void-repo-multilib-nonfree
 sudo xbps-install -Syu
 
 # Enable the Voiders repository for Noctalia and Bibata.
-printf '%s\n' 'repository=https://repo.voiders.dev' |
-  sudo tee /etc/xbps.d/10-voiders-community.conf >/dev/null
+printf '%s\n' 'repository=https://repo.voiders.dev' | sudo tee /etc/xbps.d/10-voiders-community.conf >/dev/null
 yes | sudo xbps-install -Sy
 
 echo "==> Installing graphics, Sway, Noctalia, apps, and CLI tools"
 
 # Intel graphics.
-sudo xbps-install -Sy \
-  linux-firmware-intel mesa-dri vulkan-loader \
-  mesa-vulkan-intel intel-video-accel intel-media-driver
+sudo xbps-install -Sy linux-firmware-intel mesa-dri vulkan-loader mesa-vulkan-intel intel-video-accel intel-media-driver
 
 # Portals and user directories.
-sudo xbps-install -Sy \
-  xdg-desktop-portal xdg-desktop-portal-wlr \
-  xdg-desktop-portal-gtk xdg-utils \
-  xdg-user-dirs xdg-user-dirs-gtk
+sudo xbps-install -Sy xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk xdg-utils xdg-user-dirs xdg-user-dirs-gtk
 run_as_user xdg-user-dirs-update
 
 # Fonts.
 sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
 
 # Desktop apps and CLI tools, including Git and GNU Stow for the dotfiles step.
-sudo xbps-install -Sy \
-  ddcutil kitty Thunar thunar-volman \
-  thunar-archive-plugin thunar-media-tags-plugin \
-  nodejs delta git eza bash-completion stow \
-  neovide shikane alacritty gvfs wmenu vim \
-  playerctl libnotify grim slurp grimshot satty \
-  flameshot btop fastfetch brightnessctl base-devel \
-  wl-clipboard sway foot firefox vlc xtools vsv \
-  lazygit neovim ghostty rsync yazi bat upower \
-  ffmpeg 7zip unzip zip jq poppler fd ripgrep \
-  fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
+sudo xbps-install -Sy ddcutil kitty Thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin \
+  nodejs delta git eza bash-completion stow neovide shikane alacritty gvfs wmenu vim \
+  playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel \
+  wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
+  ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
 
 # Audio and Bluetooth; elogind supplies device ACLs instead of an audio group.
-sudo xbps-install -Sy \
-  bluez alsa-utils alsa-pipewire alsa-pipewire-32bit \
-  libjack-pipewire libspa-bluetooth pipewire \
-  wireplumber wireplumber-elogind
+sudo xbps-install -Sy bluez alsa-utils alsa-pipewire alsa-pipewire-32bit libjack-pipewire libspa-bluetooth pipewire wireplumber wireplumber-elogind
 
 # Keep Vim's alternatives on Vim.
 sudo xbps-alternatives -s vim -g vim
@@ -154,12 +137,8 @@ enable_service bluetoothd
 
 # Route ALSA clients through PipeWire.
 sudo mkdir -p /etc/alsa/conf.d
-sudo ln -sfn \
-  /usr/share/alsa/alsa.conf.d/50-pipewire.conf \
-  /etc/alsa/conf.d/50-pipewire.conf
-sudo ln -sfn \
-  /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf \
-  /etc/alsa/conf.d/99-pipewire-default.conf
+sudo ln -sfn /usr/share/alsa/alsa.conf.d/50-pipewire.conf /etc/alsa/conf.d/50-pipewire.conf
+sudo ln -sfn /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf /etc/alsa/conf.d/99-pipewire-default.conf
 
 echo "==> Installing dotfiles for $REAL_USER"
 
@@ -215,12 +194,8 @@ done
 # Sway starts PipeWire; these drop-ins start its session services.
 PIPEWIRE_DIR="$USER_HOME/.config/pipewire/pipewire.conf.d"
 run_as_user mkdir -p "$PIPEWIRE_DIR"
-run_as_user ln -sfn \
-  /usr/share/examples/wireplumber/10-wireplumber.conf \
-  "$PIPEWIRE_DIR/10-wireplumber.conf"
-run_as_user ln -sfn \
-  /usr/share/examples/pipewire/20-pipewire-pulse.conf \
-  "$PIPEWIRE_DIR/20-pipewire-pulse.conf"
+run_as_user ln -sfn /usr/share/examples/wireplumber/10-wireplumber.conf "$PIPEWIRE_DIR/10-wireplumber.conf"
+run_as_user ln -sfn /usr/share/examples/pipewire/20-pipewire-pulse.conf "$PIPEWIRE_DIR/20-pipewire-pulse.conf"
 
 # Build an argument for every non-hidden top-level package directory. This is
 # equivalent to running `stow */` inside the checkout, while making the source
@@ -239,18 +214,10 @@ done
 }
 
 echo "==> Checking dotfiles for conflicts"
-run_as_user stow \
-  --simulate \
-  --verbose=2 \
-  --dir="$DOTFILES_DIR" \
-  --target="$USER_HOME" \
-  "$@"
+run_as_user stow --simulate --verbose=2 --dir="$DOTFILES_DIR" --target="$USER_HOME" "$@"
 
 echo "==> Stowing dotfiles into $USER_HOME"
-run_as_user stow \
-  --dir="$DOTFILES_DIR" \
-  --target="$USER_HOME" \
-  "$@"
+run_as_user stow --dir="$DOTFILES_DIR" --target="$USER_HOME" "$@"
 
 SWAY_CONFIG="$USER_HOME/.config/sway/config"
 AUDIO_START="$USER_HOME/.config/sway/scripts/start-audio.sh"
