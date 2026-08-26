@@ -48,6 +48,7 @@ xdg-user-dirs-update
 # Fonts.
 # https://docs.voidlinux.org/config/graphical-session/fonts.html
 sudo xbps-install -Sy \
+  font-hack-ttf nerd-fonts-symbols-ttf \
   dejavu-fonts-ttf noto-fonts-emoji \
   noto-fonts-ttf
 
