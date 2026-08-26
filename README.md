@@ -4,18 +4,24 @@ Install scripts that take a plain Void Linux base image to a working sway
 desktop on Wayland, with **elogind** as session, seat and power manager.
 
 Configs are not in this repo. They live in
-[dotfiles](https://github.com/simple-sketch/dotfiles), laid out as GNU stow
-packages, and are symlinked into `~` rather than copied, so editing
+[dotfiles-stow](https://github.com/simple-sketch/dotfiles-stow), laid out as
+GNU Stow packages, and are symlinked into `~` rather than copied, so editing
 `~/.config/sway/config` *is* editing the repo.
 
 ## Install
 
+Run the all-in-one installer as your normal user, not directly as root:
+
 ```sh
-sh install_cli_tools_apps_sway_noctalia.sh
+sh install.sh
 sudo reboot
-git clone https://github.com/simple-sketch/dotfiles ~/dotfiles
-cd ~/dotfiles && stow */
 ```
+
+`install.sh` runs `install_cli_tools_apps_sway_noctalia.sh`, clones
+`dotfiles-stow` directly below your home directory, checks all packages for
+Stow conflicts, and then links them into your home directory. If the expected
+checkout already exists, the installer safely reuses it without pulling over
+local changes.
 
 Then, optional:
 
@@ -59,11 +65,12 @@ Re-running the script leaves existing stow symlinks alone.
 
 ## stow notes
 
-**`stow */`, not `stow .`** — with a bare dot stow treats the whole repo as one
-package and links `~/bashrc -> dotfiles/bashrc`, leaving you with no `~/.bashrc`
-and no `~/.config` links at all. The trailing slash on the glob keeps `.git`
-out. Run it from inside `~/dotfiles`; the default target is the parent
-directory, which is `~`.
+**`stow */`, not `stow .`** — with a bare dot Stow treats the whole repo as one
+package and links `~/bashrc -> dotfiles-stow/bashrc`, leaving you with no
+`~/.bashrc` and no `~/.config` links at all. The trailing slash on the glob
+keeps `.git` out. Run it from inside `~/dotfiles-stow`; the default target is
+the parent directory, which is `~`. The all-in-one installer avoids relying on
+the current directory by passing explicit `--dir` and `--target` options.
 
 **`~/.config` has to exist first.** If it does not, stow *folds*: it makes
 `~/.config` itself a symlink into whichever package it saw first, after which
@@ -85,7 +92,7 @@ into the repo and overwrites the version you wanted.
 
 **Apps that rewrite their own config write into the repo**, because the
 directory they write into is a symlink. That is usually the point, but it means
-`git -C ~/dotfiles status` is where the surprise shows up.
+`git -C ~/dotfiles-stow status` is where the surprise shows up.
 
 ## After the reboot
 
