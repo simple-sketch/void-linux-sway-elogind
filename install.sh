@@ -69,13 +69,13 @@ echo "==> Updating XBPS and enabling repositories"
 sudo xbps-install -Syu xbps
 sudo xbps-install -Syu
 
+# Enable the Voiders repository for Noctalia and Bibata.
+printf '%s\n' 'repository=https://repo.voiders.dev' | sudo tee /etc/xbps.d/10-voiders-community.conf >/dev/null
+sudo xbps-install -Sy
+
 # Enable official nonfree and multilib repositories.
 sudo xbps-install -Sy void-repo-nonfree void-repo-multilib void-repo-multilib-nonfree
 sudo xbps-install -Syu
-
-# Enable the Voiders repository for Noctalia and Bibata.
-printf '%s\n' 'repository=https://repo.voiders.dev' | sudo tee /etc/xbps.d/10-voiders-community.conf >/dev/null
-yes | sudo xbps-install -Sy
 
 echo "==> Installing graphics, Sway, Noctalia, apps, and CLI tools"
 
