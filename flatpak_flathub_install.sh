@@ -13,3 +13,4 @@ sudo flatpak remote-add --if-not-exists flathub \
 # Install Keypunch from Flathub.
 sudo flatpak --assumeyes install flathub no.bragefuglseth.Keypunch
 sudo flatpak --assumeyes install flathub io.dbeaver.DBeaverCommunity
+sudo flatpak --assumeyes install flathub com.getpostman.Postman
