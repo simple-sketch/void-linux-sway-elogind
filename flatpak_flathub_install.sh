@@ -7,8 +7,7 @@ set -eu
 
 # Install Flatpak and add the Flathub repository.
 sudo xbps-install -Sy flatpak
-sudo flatpak remote-add --if-not-exists flathub \
-  https://dl.flathub.org/repo/flathub.flatpakrepo
+sudo flatpak remote-add --if-not-exists flathubflatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo
 
 # Install Keypunch from Flathub.
 sudo flatpak --assumeyes install flathub no.bragefuglseth.Keypunch
