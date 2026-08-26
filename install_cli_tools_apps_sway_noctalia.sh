@@ -68,9 +68,7 @@ sudo xbps-install -Sy \
 run_as_user xdg-user-dirs-update
 
 # Fonts.
-sudo xbps-install -Sy \
-  font-hack-ttf nerd-fonts-symbols-ttf \
-  dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
+sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
 
 # Desktop apps and CLI tools.
 sudo xbps-install -Sy \
