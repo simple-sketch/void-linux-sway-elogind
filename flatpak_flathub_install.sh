@@ -10,5 +10,5 @@ sudo xbps-install -Sy flatpak
 sudo flatpak remote-add --if-not-exists flathub \
   https://dl.flathub.org/repo/flathub.flatpakrepo
 
-# Install Waterfox from Flathub.
-sudo flatpak --assumeyes install flathub net.waterfox.waterfox
+# Install Keypunch from Flathub.
+sudo flatpak --assumeyes install flathub no.bragefuglseth.Keypunch
