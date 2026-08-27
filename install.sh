@@ -90,8 +90,7 @@ run_as_user xdg-user-dirs-update
 sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
 
 # Desktop apps and CLI tools, including Git and GNU Stow for the dotfiles step.
-sudo xbps-install -Sy ddcutil kitty Thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin \
-  nodejs delta git eza bash-completion stow neovide shikane alacritty gvfs wmenu vim \
+sudo xbps-install -Sy ddcutil kitty qimgv nodejs delta git eza bash-completion stow neovide shikane alacritty wmenu vim \
   playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel \
   wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
   ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
