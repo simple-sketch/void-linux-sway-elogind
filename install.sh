@@ -146,7 +146,7 @@ sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
 sudo xbps-install -Sy ddcutil kitty swayimg nodejs delta git eza bash-completion stow neovide shikane alacritty wmenu vim \
   playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel \
   wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
-  ffmpeg 7zip unzip zip jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
+  ffmpeg 7zip unzip zip unrar jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
 
 # Audio and Bluetooth; elogind supplies device ACLs instead of an audio group.
 sudo xbps-install -Sy bluez alsa-utils alsa-pipewire alsa-pipewire-32bit libjack-pipewire libspa-bluetooth pipewire wireplumber wireplumber-elogind
