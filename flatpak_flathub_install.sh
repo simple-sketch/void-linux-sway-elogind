@@ -5,11 +5,20 @@
 
 set -eu
 
-# Install Flatpak and add the Flathub repository.
-sudo xbps-install -Sy flatpak
-sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+command -v sudo >/dev/null 2>&1 || {
+  echo "sudo is required" >&2
+  exit 1
+}
 
-# Install Keypunch from Flathub.
-sudo flatpak --assumeyes install flathub no.bragefuglseth.Keypunch
-sudo flatpak --assumeyes install flathub io.dbeaver.DBeaverCommunity
-sudo flatpak --assumeyes install flathub com.getpostman.Postman
+sudo -v
+
+# Use the system installation explicitly so the remote and applications do not
+# depend on root's Flatpak defaults.
+sudo xbps-install -Sy flatpak
+sudo flatpak remote-add --system --if-not-exists \
+  flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+sudo flatpak install --system --assumeyes flathub \
+  no.bragefuglseth.Keypunch \
+  io.dbeaver.DBeaverCommunity \
+  com.getpostman.Postman

@@ -5,6 +5,12 @@
 
 set -eu
 
+command -v sudo >/dev/null 2>&1 || {
+  echo "sudo is required" >&2
+  exit 1
+}
+
+sudo -v
 sudo xbps-install -Sy nerd-fonts
 
 echo "Nerd Fonts installed"

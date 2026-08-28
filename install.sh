@@ -7,6 +7,17 @@
 
 set -eu
 
+command -v xbps-uhelper >/dev/null 2>&1 || {
+  echo "this installer requires Void Linux and XBPS" >&2
+  exit 1
+}
+
+XBPS_ARCH=$(xbps-uhelper arch)
+if [ "$XBPS_ARCH" != x86_64 ]; then
+  echo "unsupported XBPS architecture: $XBPS_ARCH (expected x86_64 glibc)" >&2
+  exit 1
+fi
+
 DOTFILES_REPO="https://github.com/simple-sketch/dotfiles-stow"
 
 if [ "$(id -u)" -eq 0 ]; then
@@ -22,38 +33,80 @@ fi
 
 USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
 
-[ -n "$USER_HOME" ] || {
-  echo "cannot resolve home directory for $REAL_USER" >&2
+case "$USER_HOME" in
+"" | /)
+  echo "unsafe home directory for $REAL_USER: ${USER_HOME:-<empty>}" >&2
+  exit 1
+  ;;
+/*) ;;
+*)
+  echo "home directory is not absolute for $REAL_USER: $USER_HOME" >&2
+  exit 1
+  ;;
+esac
+
+DOTFILES_DIR="$USER_HOME/dotfiles-stow"
+SERVICE_START_TIMEOUT=15
+
+command -v sudo >/dev/null 2>&1 || {
+  echo "sudo is required" >&2
   exit 1
 }
 
-DOTFILES_DIR="$USER_HOME/dotfiles-stow"
+# Authenticate before the first package transaction so a missing sudo setup
+# cannot leave the machine half-configured.
+sudo -v
 
 run_as_user() {
+  set -- env \
+    HOME="$USER_HOME" \
+    XDG_CONFIG_HOME="$USER_HOME/.config" \
+    XDG_DATA_HOME="$USER_HOME/.local/share" \
+    XDG_STATE_HOME="$USER_HOME/.local/state" \
+    XDG_CACHE_HOME="$USER_HOME/.cache" \
+    "$@"
+
   if [ "$(id -u)" -eq 0 ]; then
-    sudo -u "$REAL_USER" env HOME="$USER_HOME" "$@"
+    sudo -u "$REAL_USER" "$@"
   else
-    HOME="$USER_HOME" "$@"
+    "$@"
   fi
 }
 
 enable_service() {
   service_name=$1
-  sudo ln -sfn "/etc/sv/$service_name" /var/service/
+  service_source="/etc/sv/$service_name"
+  service_target="/var/service/$service_name"
+
+  if [ ! -d "$service_source" ]; then
+    echo "service directory is missing: $service_source" >&2
+    return 1
+  fi
+
+  if [ -e "$service_target" ] && [ ! -d "$service_target" ] && [ ! -L "$service_target" ]; then
+    echo "cannot enable $service_name: $service_target is not a service directory or symlink" >&2
+    return 1
+  fi
+
+  # Keep an existing service directory intact; otherwise create or repair the
+  # conventional runit symlink.
+  if [ ! -d "$service_target" ] || [ -L "$service_target" ]; then
+    sudo ln -sfn "$service_source" "$service_target"
+  fi
 
   i=0
-  while [ "$i" -lt 10 ]; do
+  while [ "$i" -lt "$SERVICE_START_TIMEOUT" ]; do
     if sudo sv check "$service_name" >/dev/null 2>&1; then
-      sudo sv status "$service_name" ||
-        echo "warning: $service_name stopped unexpectedly" >&2
+      sudo sv status "$service_name"
       return 0
     fi
     i=$((i + 1))
     sleep 1
   done
 
-  sudo sv status "$service_name" ||
-    echo "warning: $service_name did not come up" >&2
+  sudo sv status "$service_name" >&2 || true
+  echo "error: $service_name did not become ready within ${SERVICE_START_TIMEOUT}s" >&2
+  return 1
 }
 
 # Reject an unrelated directory before making system changes. Git itself is
@@ -116,8 +169,9 @@ enable_service elogind
 sudo usermod -aG video "$REAL_USER"
 
 if ! grep -q 'pam_elogind.so' /etc/pam.d/system-login; then
-  echo "warning: pam_elogind.so is missing from /etc/pam.d/system-login" >&2
-  echo "add: -session optional pam_elogind.so" >&2
+  echo "error: pam_elogind.so is missing from /etc/pam.d/system-login" >&2
+  echo "add '-session optional pam_elogind.so', then rerun the installer" >&2
+  exit 1
 fi
 
 sudo udevadm control --reload-rules
@@ -126,7 +180,7 @@ enable_service polkitd
 
 # Power management.
 sudo xbps-install -Sy tlp
-sudo ln -sfn /etc/sv/tlp /var/service/
+enable_service tlp
 
 # ALSA state and Bluetooth.
 enable_service alsa
@@ -202,8 +256,21 @@ run_as_user ln -sfn /usr/share/examples/pipewire/20-pipewire-pulse.conf "$PIPEWI
 set --
 for package_dir in "$DOTFILES_DIR"/*/; do
   [ -d "$package_dir" ] || continue
-  package=${package_dir%/}
-  package=${package##*/}
+  package_path=${package_dir%/}
+
+  if [ -L "$package_path" ]; then
+    echo "refusing symlinked Stow package: $package_path" >&2
+    exit 1
+  fi
+
+  package=${package_path##*/}
+  case "$package" in
+  -*)
+    echo "invalid Stow package name (looks like an option): $package" >&2
+    exit 1
+    ;;
+  esac
+
   set -- "$@" "$package"
 done
 
