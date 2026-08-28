@@ -1,7 +1,7 @@
 #!/bin/sh
 
-# Install an Intel Sway/Noctalia desktop with elogind and multimedia, then
-# clone and stow the matching user configuration. Keep this installer
+# Install an Intel Sway/Noctalia desktop with elogind, multimedia, and iwd,
+# then clone and stow the matching user configuration. Keep this installer
 # self-contained so it does not depend on another script's name or location.
 # Do not combine this setup with seatd or turnstile.
 
@@ -47,6 +47,10 @@ esac
 
 DOTFILES_DIR="$USER_HOME/dotfiles-stow"
 SERVICE_START_TIMEOUT=15
+IWD_CONFIG_FILE=${IWD_CONFIG_FILE:-/etc/iwd/main.conf}
+IWD_WAS_ENABLED=false
+WPA_SUPPLICANT_WAS_ENABLED=false
+IWD_ROLLBACK_REQUIRED=false
 
 command -v sudo >/dev/null 2>&1 || {
   echo "sudo is required" >&2
@@ -107,6 +111,39 @@ enable_service() {
   sudo sv status "$service_name" >&2 || true
   echo "error: $service_name did not become ready within ${SERVICE_START_TIMEOUT}s" >&2
   return 1
+}
+
+service_is_enabled() {
+  service_name=$1
+  [ -e "/var/service/$service_name" ] || [ -L "/var/service/$service_name" ]
+}
+
+restore_wireless_on_exit() {
+  exit_status=$?
+  trap - EXIT
+
+  if [ "$IWD_ROLLBACK_REQUIRED" = true ]; then
+    echo "iwd setup failed; restoring the previous wireless service" >&2
+
+    if [ "$IWD_WAS_ENABLED" = false ]; then
+      sudo sv down iwd >/dev/null 2>&1 || true
+      if [ -L /var/service/iwd ]; then
+        sudo rm -f /var/service/iwd ||
+          echo "warning: could not remove the iwd service link" >&2
+      fi
+    fi
+
+    if [ "$WPA_SUPPLICANT_WAS_ENABLED" = true ]; then
+      if sudo ln -sfn /etc/sv/wpa_supplicant /var/service/wpa_supplicant; then
+        sudo sv up wpa_supplicant >/dev/null 2>&1 ||
+          echo "warning: restored wpa_supplicant but could not start it" >&2
+      else
+        echo "warning: could not restore the wpa_supplicant service link" >&2
+      fi
+    fi
+  fi
+
+  exit "$exit_status"
 }
 
 # Reject an unrelated directory before making system changes. Git itself is
@@ -278,6 +315,63 @@ done
   echo "no Stow packages found in $DOTFILES_DIR" >&2
   exit 1
 }
+
+echo "==> Replacing wpa_supplicant with iwd"
+
+# The base installer normally provides dhcpcd for IP configuration and may use
+# wpa_supplicant for the initial Wi-Fi connection. Keep dhcpcd for both Wi-Fi
+# and ethernet; iwd is responsible only for wireless association.
+for network_manager in NetworkManager connmand wicd; do
+  if service_is_enabled "$network_manager"; then
+    echo "$network_manager is enabled and conflicts with standalone iwd" >&2
+    echo "disable it first: sudo rm /var/service/$network_manager" >&2
+    exit 1
+  fi
+done
+
+if service_is_enabled wpa_supplicant && [ ! -L /var/service/wpa_supplicant ]; then
+  echo "cannot switch wireless: /var/service/wpa_supplicant is not a removable symlink" >&2
+  exit 1
+fi
+
+if [ -e /var/service/iwd ] && [ ! -d /var/service/iwd ] && [ ! -L /var/service/iwd ]; then
+  echo "cannot enable iwd: /var/service/iwd is not a service directory or symlink" >&2
+  exit 1
+fi
+
+if [ -r "$IWD_CONFIG_FILE" ] &&
+  grep -Eiq '^[[:space:]]*EnableNetworkConfiguration[[:space:]]*=[[:space:]]*true([[:space:]]|$)' "$IWD_CONFIG_FILE"; then
+  echo "cannot combine dhcpcd with EnableNetworkConfiguration=true in $IWD_CONFIG_FILE" >&2
+  echo "disable iwd network configuration before running this script" >&2
+  exit 1
+fi
+
+# D-Bus was enabled above, and Void enables dhcpcd during base installation.
+# Only install and switch the wireless daemon here.
+sudo xbps-install -Sy iwd
+
+[ -d /var/service/iwd ] && IWD_WAS_ENABLED=true
+[ -d /var/service/wpa_supplicant ] && WPA_SUPPLICANT_WAS_ENABLED=true
+IWD_ROLLBACK_REQUIRED=true
+trap restore_wireless_on_exit EXIT
+
+if service_is_enabled wpa_supplicant; then
+  sudo sv down wpa_supplicant || true
+  sudo rm -f /var/service/wpa_supplicant
+fi
+
+if ! enable_service iwd; then
+  echo "error: iwd did not become ready" >&2
+  exit 1
+fi
+
+sudo sv status iwd
+
+IWD_ROLLBACK_REQUIRED=false
+trap - EXIT
+
+echo "iwd is enabled. List adapters with: sudo iwctl device list"
+echo "Connect with: sudo iwctl station <device> connect <SSID>"
 
 echo "==> Checking dotfiles for conflicts"
 run_as_user stow --simulate --verbose=2 --dir="$DOTFILES_DIR" --target="$USER_HOME" "$@"
