@@ -186,7 +186,7 @@ sudo xbps-install -Sy shfmt shellcheck ddcutil kitty swayimg nodejs delta git ez
   ffmpeg 7zip unzip zip unrar jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
 
 # Audio and Bluetooth; elogind supplies device ACLs instead of an audio group.
-sudo xbps-install -Sy bluez alsa-utils alsa-pipewire alsa-pipewire-32bit libjack-pipewire libspa-bluetooth pipewire wireplumber wireplumber-elogind
+sudo xbps-install -Sy bluez alsa-utils alsa-pipewire libjack-pipewire libspa-bluetooth pipewire wireplumber wireplumber-elogind
 
 # Keep Vim's alternatives on Vim.
 sudo xbps-alternatives -s vim -g vim
@@ -194,7 +194,7 @@ sudo xbps-alternatives -s vim -g vim
 echo "==> Configuring system services"
 
 # Logging and session services.
-sudo xbps-install -Sy socklog-void dbus elogind xfce-polkit
+sudo xbps-install -Sy socklog-void dbus elogind polkit
 
 enable_service socklog-unix
 enable_service nanoklogd
@@ -281,11 +281,18 @@ for name in .bashrc .bash_profile .inputrc .vimrc; do
   echo "backup: $BACKUP_DIR/$name"
 done
 
-# Sway starts PipeWire; these drop-ins start its session services.
+# Sway starts PipeWire; these drop-ins start its session services and prevent
+# the X11 bell module from keeping an otherwise-unused Xwayland process alive.
 PIPEWIRE_DIR="$USER_HOME/.config/pipewire/pipewire.conf.d"
 run_as_user mkdir -p "$PIPEWIRE_DIR"
 run_as_user ln -sfn /usr/share/examples/wireplumber/10-wireplumber.conf "$PIPEWIRE_DIR/10-wireplumber.conf"
 run_as_user ln -sfn /usr/share/examples/pipewire/20-pipewire-pulse.conf "$PIPEWIRE_DIR/20-pipewire-pulse.conf"
+run_as_user tee "$PIPEWIRE_DIR/30-disable-x11-bell.conf" >/dev/null <<'EOF'
+# Do not keep Xwayland alive solely to provide the legacy X11 bell.
+context.properties = {
+    module.x11.bell = false
+}
+EOF
 
 # Build an argument for every non-hidden top-level package directory. This is
 # equivalent to running `stow */` inside the checkout, while making the source
