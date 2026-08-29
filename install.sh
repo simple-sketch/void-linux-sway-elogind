@@ -215,9 +215,20 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 enable_service polkitd
 
-# Power management.
+# Power management. Keep TLP's power-saver profile active on both AC and
+# battery; the runit service reapplies it at boot and on power-source changes.
 sudo xbps-install -Sy tlp
+sudo install -d -m 0755 /etc/tlp.d
+sudo tee /etc/tlp.d/99-power-saver.conf >/dev/null <<'EOF'
+# Managed by void-sway-noctalia-elogind/install.sh.
+TLP_ENABLE=1
+TLP_AUTO_SWITCH=1
+TLP_PROFILE_AC=SAV
+TLP_PROFILE_BAT=SAV
+TLP_PROFILE_DEFAULT=SAV
+EOF
 enable_service tlp
+sudo tlp power-saver
 
 # ALSA state and Bluetooth.
 enable_service alsa
