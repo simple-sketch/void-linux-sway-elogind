@@ -29,14 +29,26 @@ Run the installer as your normal user, not directly as root:
 sudo reboot
 ```
 
-The script checks each runit service before continuing. A failed required
-service stops the install instead of reporting a successful setup.
+The script actively requests each required runit service to start and waits up
+to 15 seconds for readiness. A failed service stops the install instead of
+reporting a successful setup. Before package or service changes, the installer
+also rejects conflicting managed configuration and verifies the existing PAM,
+network-service, iwd, and dotfiles state.
+
+The installer prints the expected Voiders signing fingerprint before repository
+sync and verifies the active repository fingerprint afterward. The fingerprint
+[published by the Voiders project](https://codeberg.org/voiders-community/repository)
+is `a8:f0:05:df:01:c4:37:92:83:f6:8b:9a:ce:ab:73:29`.
 
 ## Network choice
 
-Use only one Wi-Fi manager.
+The main installer configures standalone iwd with dhcpcd. It installs both
+packages, starts and verifies dhcpcd, and only then removes the enabled
+`wpa_supplicant` service link. If iwd does not start, the installer restores the
+previous `wpa_supplicant` service. It refuses conflicting NetworkManager,
+ConnMan, or Wicd services and an iwd `EnableNetworkConfiguration=true` setting.
 
-For Noctalia's network widget, install NetworkManager:
+To use Noctalia's NetworkManager integration instead, run:
 
 ```sh
 ./networkmanager_install.sh
@@ -46,14 +58,8 @@ This disables conflicting standalone services (`iwd`, `wpa_supplicant`,
 `dhcpcd`, ConnMan, and Wicd). It starts D-Bus and polkit first, then restores
 the prior network services if NetworkManager cannot start.
 
-To use `iwctl` instead, install standalone iwd with dhcpcd:
-
-```sh
-./iwd.sh
-```
-
-The iwd script refuses conflicting network managers and an existing
-`EnableNetworkConfiguration=true` setting because dhcpcd owns DHCP.
+Run `networkmanager_install.sh` after the main installer if you want to replace
+the integrated iwd setup.
 
 ## Optional installs
 
@@ -67,8 +73,10 @@ The zram configuration is `/etc/sv/zramen/conf`.
 
 ## Checks
 
-Run syntax checks, ShellCheck (when installed), and sandboxed service setup and
-rollback tests (when Bubblewrap is available):
+Run POSIX shell syntax checks, ShellCheck and shfmt checks (when installed), and
+sandboxed installer preflight, service-ordering, repository-fingerprint, and
+wireless-rollback tests (when Bubblewrap is available). The tests use mocked
+`sudo` and XBPS commands and do not change host services or configuration:
 
 ```sh
 ./tests/check.sh
