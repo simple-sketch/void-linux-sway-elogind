@@ -23,8 +23,6 @@ VOIDERS_REPO="https://repo.voiders.dev"
 # Published independently of the repository metadata at:
 # https://codeberg.org/voiders-community/repository
 VOIDERS_FINGERPRINT="a8:f0:05:df:01:c4:37:92:83:f6:8b:9a:ce:ab:73:29"
-SIMPLE_SKETCH_REPO="https://raw.githubusercontent.com/simple-sketch/void-xbps-repository/main"
-SIMPLE_SKETCH_FINGERPRINT="f0:c8:38:88:dd:5b:65:c3:40:68:7f:98:6c:69:7b:84"
 
 if [ "$(id -u)" -eq 0 ]; then
   REAL_USER=${SUDO_USER:-}
@@ -40,15 +38,15 @@ fi
 USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
 
 case "$USER_HOME" in
-  "" | /)
-    echo "unsafe home directory for $REAL_USER: ${USER_HOME:-<empty>}" >&2
-    exit 1
-    ;;
-  /*) ;;
-  *)
-    echo "home directory is not absolute for $REAL_USER: $USER_HOME" >&2
-    exit 1
-    ;;
+"" | /)
+  echo "unsafe home directory for $REAL_USER: ${USER_HOME:-<empty>}" >&2
+  exit 1
+  ;;
+/*) ;;
+*)
+  echo "home directory is not absolute for $REAL_USER: $USER_HOME" >&2
+  exit 1
+  ;;
 esac
 
 DOTFILES_DIR="$USER_HOME/dotfiles-stow"
@@ -300,64 +298,6 @@ install_user_link_if_absent() {
   fi
 }
 
-authenticate_repository() {
-  AUTH_REPOSITORY_LABEL=$1
-  AUTH_REPOSITORY_URL=$2
-  AUTH_EXPECTED_FINGERPRINT=$3
-
-  echo "$AUTH_REPOSITORY_LABEL expected fingerprint: $AUTH_EXPECTED_FINGERPRINT"
-  echo "==> Authenticating $AUTH_REPOSITORY_LABEL"
-
-  # Ignore configured repositories and sync only this URL. Do not persist its
-  # configuration until both the signed-repository marker and fingerprint match.
-  sudo xbps-install -i --repository="$AUTH_REPOSITORY_URL" -S
-
-  AUTH_REPOSITORY_DETAILS=$(xbps-query -i --repository="$AUTH_REPOSITORY_URL" -vL) || {
-    echo "error: could not inspect the $AUTH_REPOSITORY_LABEL signature" >&2
-    exit 1
-  }
-
-  AUTH_SIGNED_REPOSITORIES=$(printf '%s\n' "$AUTH_REPOSITORY_DETAILS" | awk -v repo="$AUTH_REPOSITORY_URL" '
-    $1 ~ /^[[:digit:]]+$/ && $2 == repo && $3 == "(RSA" && $4 == "signed)" && NF == 4 {
-      signed_repositories++
-    }
-    END { print signed_repositories + 0 }
-  ')
-
-  if [ "$AUTH_SIGNED_REPOSITORIES" -ne 1 ]; then
-    echo "error: $AUTH_REPOSITORY_LABEL is not reported once as RSA signed" >&2
-    printf '%s\n' "$AUTH_REPOSITORY_DETAILS" >&2
-    exit 1
-  fi
-
-  AUTH_ACTIVE_FINGERPRINTS=$(printf '%s\n' "$AUTH_REPOSITORY_DETAILS" | awk '
-    {
-      for (field = 1; field <= NF; field++) {
-        count = split($field, octet, ":")
-        if (count != 16) {
-          continue
-        }
-        valid = 1
-        for (part = 1; part <= count; part++) {
-          if (octet[part] !~ /^[[:xdigit:]][[:xdigit:]]$/) {
-            valid = 0
-          }
-        }
-        if (valid) {
-          print tolower($field)
-        }
-      }
-    }
-  ')
-
-  if [ "$AUTH_ACTIVE_FINGERPRINTS" != "$AUTH_EXPECTED_FINGERPRINT" ]; then
-    echo "error: $AUTH_REPOSITORY_LABEL fingerprint verification failed" >&2
-    echo "expected exactly: $AUTH_EXPECTED_FINGERPRINT" >&2
-    echo "active fingerprint(s): ${AUTH_ACTIVE_FINGERPRINTS:-<missing>}" >&2
-    exit 1
-  fi
-}
-
 read_dotfiles_origin_without_git() {
   run_as_user awk "
     BEGIN { in_origin = 0 }
@@ -395,9 +335,6 @@ trap cleanup_preflight EXIT
 cat >"$PREFLIGHT_DIR/voiders.conf" <<EOF
 repository=$VOIDERS_REPO
 EOF
-cat >"$PREFLIGHT_DIR/simple-sketch.conf" <<EOF
-repository=$SIMPLE_SKETCH_REPO
-EOF
 cat >"$PREFLIGHT_DIR/tlp.conf" <<'EOF'
 # Managed by void-sway-noctalia-elogind/install.sh.
 TLP_ENABLE=1
@@ -427,13 +364,13 @@ if [ -e "$DOTFILES_DIR" ] || [ -L "$DOTFILES_DIR" ]; then
   }
 
   case "$EXISTING_REPO" in
-    "$DOTFILES_REPO" | "$DOTFILES_REPO.git")
-      USE_EXISTING_DOTFILES=true
-      ;;
-    *)
-      echo "$DOTFILES_DIR has an unexpected origin: ${EXISTING_REPO:-<missing>}" >&2
-      exit 1
-      ;;
+  "$DOTFILES_REPO" | "$DOTFILES_REPO.git")
+    USE_EXISTING_DOTFILES=true
+    ;;
+  *)
+    echo "$DOTFILES_DIR has an unexpected origin: ${EXISTING_REPO:-<missing>}" >&2
+    exit 1
+    ;;
   esac
 fi
 
@@ -498,7 +435,6 @@ require_user_directory_or_absent "$USER_HOME/.config"
 require_user_directory_or_absent "$USER_HOME/.config/pipewire"
 require_user_directory_or_absent "$PIPEWIRE_DIR"
 require_root_file_state /etc/xbps.d/10-voiders-community.conf "$PREFLIGHT_DIR/voiders.conf"
-require_root_file_state /etc/xbps.d/20-simple-sketch.conf "$PREFLIGHT_DIR/simple-sketch.conf"
 require_root_file_state /etc/tlp.d/99-power-saver.conf "$PREFLIGHT_DIR/tlp.conf"
 require_root_link_state /etc/alsa/conf.d/50-pipewire.conf /usr/share/alsa/alsa.conf.d/50-pipewire.conf
 require_root_link_state /etc/alsa/conf.d/99-pipewire-default.conf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf
@@ -506,14 +442,62 @@ require_user_link_state "$PIPEWIRE_DIR/10-wireplumber.conf" /usr/share/examples/
 require_user_link_state "$PIPEWIRE_DIR/20-pipewire-pulse.conf" /usr/share/examples/pipewire/20-pipewire-pulse.conf
 require_user_file_state "$PIPEWIRE_DIR/30-disable-x11-bell.conf" "$PREFLIGHT_DIR/disable-x11-bell.conf"
 
-authenticate_repository "Voiders repository" "$VOIDERS_REPO" "$VOIDERS_FINGERPRINT"
-authenticate_repository "simple-sketch repository" "$SIMPLE_SKETCH_REPO" "$SIMPLE_SKETCH_FINGERPRINT"
+echo "Voiders repository expected fingerprint: $VOIDERS_FINGERPRINT"
+echo "==> Authenticating and enabling the Voiders repository"
 
-# Persist repositories only after authentication. The no-clobber helper
+# Ignore configured repositories and sync only this URL. Do not persist its
+# configuration until both the signed-repository marker and fingerprint match.
+sudo xbps-install -i --repository="$VOIDERS_REPO" -S
+
+VOIDERS_REPO_DETAILS=$(xbps-query -i --repository="$VOIDERS_REPO" -vL) || {
+  echo "error: could not inspect the active Voiders repository signature" >&2
+  exit 1
+}
+
+SIGNED_VOIDERS_REPOSITORIES=$(printf '%s\n' "$VOIDERS_REPO_DETAILS" | awk -v repo="$VOIDERS_REPO" '
+  $1 ~ /^[[:digit:]]+$/ && $2 == repo && $3 == "(RSA" && $4 == "signed)" && NF == 4 {
+    signed_repositories++
+  }
+  END { print signed_repositories + 0 }
+')
+
+if [ "$SIGNED_VOIDERS_REPOSITORIES" -ne 1 ]; then
+  echo "error: the exact Voiders repository is not reported once as RSA signed" >&2
+  printf '%s\n' "$VOIDERS_REPO_DETAILS" >&2
+  exit 1
+fi
+
+ACTIVE_VOIDERS_FINGERPRINTS=$(printf '%s\n' "$VOIDERS_REPO_DETAILS" | awk '
+  {
+    for (field = 1; field <= NF; field++) {
+      count = split($field, octet, ":")
+      if (count != 16) {
+        continue
+      }
+      valid = 1
+      for (part = 1; part <= count; part++) {
+        if (octet[part] !~ /^[[:xdigit:]][[:xdigit:]]$/) {
+          valid = 0
+        }
+      }
+      if (valid) {
+        print tolower($field)
+      }
+    }
+  }
+')
+
+if [ "$ACTIVE_VOIDERS_FINGERPRINTS" != "$VOIDERS_FINGERPRINT" ]; then
+  echo "error: Voiders repository fingerprint verification failed" >&2
+  echo "expected exactly: $VOIDERS_FINGERPRINT" >&2
+  echo "active fingerprint(s): ${ACTIVE_VOIDERS_FINGERPRINTS:-<missing>}" >&2
+  exit 1
+fi
+
+# Persist the repository only after authentication. The no-clobber helper
 # revalidates immediately before creation and never replaces differing state.
 ensure_root_directory /etc/xbps.d
 install_root_file_if_absent /etc/xbps.d/10-voiders-community.conf "$PREFLIGHT_DIR/voiders.conf"
-install_root_file_if_absent /etc/xbps.d/20-simple-sketch.conf "$PREFLIGHT_DIR/simple-sketch.conf"
 
 # Update XBPS only after the third-party repository has been authenticated.
 sudo xbps-install -Syu xbps
@@ -610,10 +594,10 @@ for package_dir in "$DOTFILES_DIR"/*/; do
 
   package=${package_path##*/}
   case "$package" in
-    -*)
-      echo "invalid Stow package name (looks like an option): $package" >&2
-      exit 1
-      ;;
+  -*)
+    echo "invalid Stow package name (looks like an option): $package" >&2
+    exit 1
+    ;;
   esac
 
   set -- "$@" "$package"
