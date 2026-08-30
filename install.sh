@@ -520,7 +520,7 @@ run_as_user xdg-user-dirs-update
 sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
 
 # Desktop apps and CLI tools, including Git and GNU Stow for the dotfiles step.
-sudo xbps-install -Sy perl-File-MimeInfo ripdrag shfmt shellcheck ddcutil kitty swayimg nodejs delta git eza bash-completion stow neovide shikane alacritty wmenu vim \
+sudo xbps-install -Sy perl-File-MimeInfo shfmt shellcheck ddcutil kitty swayimg nodejs delta git eza bash-completion stow neovide shikane alacritty wmenu vim \
   playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel \
   wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
   ffmpeg 7zip unzip zip unrar jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
@@ -613,32 +613,6 @@ run_as_user stow --simulate --verbose=2 --dir="$DOTFILES_DIR" --target="$USER_HO
 
 echo "==> Stowing dotfiles into $USER_HOME"
 run_as_user stow --dir="$DOTFILES_DIR" --target="$USER_HOME" "$@"
-
-echo "==> Setting default file handlers"
-run_as_user xdg-mime default swayimg.desktop \
-  image/avif \
-  image/bmp \
-  image/gif \
-  image/heif \
-  image/jpeg \
-  image/jpg \
-  image/jxl \
-  image/pbm \
-  image/pjpeg \
-  image/png \
-  image/svg+xml \
-  image/tiff \
-  image/webp \
-  image/x-bmp \
-  image/x-exr \
-  image/x-png \
-  image/x-portable-anymap \
-  image/x-portable-bitmap \
-  image/x-portable-graymap \
-  image/x-portable-pixmap \
-  image/x-targa \
-  image/x-tga
-run_as_user xdg-mime default yazi.desktop inode/directory
 
 SWAY_CONFIG="$USER_HOME/.config/sway/config"
 AUDIO_START="$USER_HOME/.config/sway/scripts/start-audio.sh"
