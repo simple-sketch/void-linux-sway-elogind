@@ -5,7 +5,9 @@ set -eu
 REPO_DIR=$(CDPATH='' cd "$(dirname "$0")/.." && pwd)
 SERVICE_TARGET=$(readlink -f /var/service 2>/dev/null || true)
 USER_HOME=$(getent passwd "$(id -un)" | cut -d: -f6)
-EXPECTED_FINGERPRINT="a8:f0:05:df:01:c4:37:92:83:f6:8b:9a:ce:ab:73:29"
+EXPECTED_VOIDERS_FINGERPRINT="a8:f0:05:df:01:c4:37:92:83:f6:8b:9a:ce:ab:73:29"
+EXPECTED_SIMPLE_SKETCH_FINGERPRINT="f0:c8:38:88:dd:5b:65:c3:40:68:7f:98:6c:69:7b:84"
+SIMPLE_SKETCH_REPO="https://raw.githubusercontent.com/simple-sketch/void-xbps-repository/main"
 
 skip() {
   echo "SKIP: installer sandbox tests ($1)"
@@ -66,12 +68,28 @@ xbps-uhelper)
   [ "${1:-}" = arch ] && printf '%s\n' x86_64
   ;;
 xbps-query)
-  fingerprint=${VOIDERS_TEST_FINGERPRINT:-a8:f0:05:df:01:c4:37:92:83:f6:8b:9a:ce:ab:73:29}
+  case "$*" in
+    *"--repository=https://repo.voiders.dev"*)
+      repository=https://repo.voiders.dev
+      signed_by="Voiders Community"
+      fingerprint=${VOIDERS_TEST_FINGERPRINT:-a8:f0:05:df:01:c4:37:92:83:f6:8b:9a:ce:ab:73:29}
+      ambiguous=${VOIDERS_AMBIGUOUS_FINGERPRINT:-0}
+      ;;
+    *"--repository=https://raw.githubusercontent.com/simple-sketch/void-xbps-repository/main"*)
+      repository=https://raw.githubusercontent.com/simple-sketch/void-xbps-repository/main
+      signed_by="simple-sketch <linas.petrenas@gmail.com>"
+      fingerprint=${SIMPLE_SKETCH_TEST_FINGERPRINT:-f0:c8:38:88:dd:5b:65:c3:40:68:7f:98:6c:69:7b:84}
+      ambiguous=${SIMPLE_SKETCH_AMBIGUOUS_FINGERPRINT:-0}
+      ;;
+    *)
+      exit 1
+      ;;
+  esac
   printf '%s\n' \
-    "  42 https://repo.voiders.dev (RSA signed)" \
-    "      Signed-by: Voiders Community" \
+    "  42 $repository (RSA signed)" \
+    "      Signed-by: $signed_by" \
     "      4096 $fingerprint"
-  if [ "${VOIDERS_AMBIGUOUS_FINGERPRINT:-0}" = 1 ]; then
+  if [ "$ambiguous" = 1 ]; then
     printf '%s\n' "      4096 $fingerprint"
   fi
   ;;
@@ -199,6 +217,10 @@ make_case managed-file-collision
 printf '%s\n' 'repository=https://attacker.invalid' >"$CASE_DIR/etc-xbps.d/10-voiders-community.conf"
 assert_preflight_failure
 
+make_case personal-repository-file-collision
+printf '%s\n' 'repository=https://attacker.invalid' >"$CASE_DIR/etc-xbps.d/20-simple-sketch.conf"
+assert_preflight_failure
+
 make_case managed-directory-collision
 mkdir "$CASE_DIR/etc-alsa/conf.d/50-pipewire.conf"
 assert_preflight_failure
@@ -242,6 +264,20 @@ if run_case env VOIDERS_AMBIGUOUS_FINGERPRINT=1 >/dev/null 2>&1; then
 fi
 assert_log_excludes "sv -w 15 start"
 
+make_case personal-fingerprint-mismatch
+if run_case env SIMPLE_SKETCH_TEST_FINGERPRINT=00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00 >/dev/null 2>&1; then
+  echo "FAIL: mismatched simple-sketch fingerprint was accepted" >&2
+  exit 1
+fi
+assert_log_excludes "sv -w 15 start"
+
+make_case personal-fingerprint-ambiguous
+if run_case env SIMPLE_SKETCH_AMBIGUOUS_FINGERPRINT=1 >/dev/null 2>&1; then
+  echo "FAIL: ambiguous simple-sketch fingerprint output was accepted" >&2
+  exit 1
+fi
+assert_log_excludes "sv -w 15 start"
+
 make_case stow-conflict
 ln -s /etc/sv/wpa_supplicant "$CASE_DIR/services/wpa_supplicant"
 if run_case env STOW_SIMULATE_FAIL=1 >/dev/null 2>&1; then
@@ -276,7 +312,9 @@ assert_before "stow --simulate" "sv -w 15 start /var/service/socklog-unix"
 assert_before "xbps-install -Sy iwd dhcpcd" "rm -f /var/service/wpa_supplicant"
 assert_before "sv -w 15 start /var/service/dhcpcd" "rm -f /var/service/wpa_supplicant"
 assert_log_contains "xbps-query -i --repository=https://repo.voiders.dev -vL"
+assert_log_contains "xbps-query -i --repository=$SIMPLE_SKETCH_REPO -vL"
 grep -F "repository=https://repo.voiders.dev" "$CASE_DIR/etc-xbps.d/10-voiders-community.conf" >/dev/null
+grep -F "repository=$SIMPLE_SKETCH_REPO" "$CASE_DIR/etc-xbps.d/20-simple-sketch.conf" >/dev/null
 
 make_case iwd-rollback
 ln -s /etc/sv/wpa_supplicant "$CASE_DIR/services/wpa_supplicant"
@@ -290,4 +328,5 @@ assert_link wpa_supplicant
 assert_before "sv -w 15 start /var/service/dhcpcd" "rm -f /var/service/wpa_supplicant"
 assert_log_contains "sv up wpa_supplicant"
 
-printf 'PASS: installer preflight, service ordering, fingerprint, and rollback (%s)\n' "$EXPECTED_FINGERPRINT"
+printf 'PASS: installer preflight, service ordering, fingerprints, and rollback (%s, %s)\n' \
+  "$EXPECTED_VOIDERS_FINGERPRINT" "$EXPECTED_SIMPLE_SKETCH_FINGERPRINT"

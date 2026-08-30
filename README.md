@@ -16,9 +16,10 @@ packages into the home directory.
 - An Intel GPU
 
 Review the scripts and the machine-specific dotfiles before running them. The
-main installer adds the third-party `https://repo.voiders.dev` XBPS repository,
-installs packages, enables runit services, changes group membership, and moves
-conflicting shell files into `~/.dotfiles-backup/`.
+main installer adds the third-party Voiders and
+[simple-sketch](https://github.com/simple-sketch/void-xbps-repository) XBPS
+repositories, installs packages, enables runit services, changes group
+membership, and moves conflicting shell files into `~/.dotfiles-backup/`.
 
 ## Desktop install
 
@@ -35,10 +36,13 @@ reporting a successful setup. Before package or service changes, the installer
 also rejects conflicting managed configuration and verifies the existing PAM,
 network-service, iwd, and dotfiles state.
 
-The installer prints the expected Voiders signing fingerprint before repository
-sync and verifies the active repository fingerprint afterward. The fingerprint
+The installer prints and verifies each repository's signing fingerprint before
+persisting its configuration. The fingerprint
 [published by the Voiders project](https://codeberg.org/voiders-community/repository)
-is `a8:f0:05:df:01:c4:37:92:83:f6:8b:9a:ce:ab:73:29`.
+is `a8:f0:05:df:01:c4:37:92:83:f6:8b:9a:ce:ab:73:29`. The simple-sketch
+repository fingerprint is
+`f0:c8:38:88:dd:5b:65:c3:40:68:7f:98:6c:69:7b:84`; its first package is the
+locally built Yazi binary.
 
 ## Network choice
 
