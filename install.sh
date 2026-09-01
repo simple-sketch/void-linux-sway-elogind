@@ -517,7 +517,7 @@ sudo xbps-install -Sy xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-port
 run_as_user xdg-user-dirs-update
 
 # Fonts.
-sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-emoji noto-fonts-ttf
+sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-cjk noto-fonts-emoji noto-fonts-ttf
 
 # Desktop apps and CLI tools, including Git and GNU Stow for the dotfiles step.
 sudo xbps-install -Sy perl-File-MimeInfo shfmt shellcheck ddcutil kitty swayimg nodejs delta git eza bash-completion stow neovide shikane alacritty wmenu vim \
