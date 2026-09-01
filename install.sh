@@ -336,7 +336,7 @@ cat >"$PREFLIGHT_DIR/voiders.conf" <<EOF
 repository=$VOIDERS_REPO
 EOF
 cat >"$PREFLIGHT_DIR/tlp.conf" <<'EOF'
-# Managed by void-sway-noctalia-elogind/install.sh.
+# Managed by void-setup-elogind/install.sh.
 TLP_ENABLE=1
 TLP_AUTO_SWITCH=1
 TLP_PROFILE_AC=SAV
