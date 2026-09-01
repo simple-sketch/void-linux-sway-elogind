@@ -335,14 +335,6 @@ trap cleanup_preflight EXIT
 cat >"$PREFLIGHT_DIR/voiders.conf" <<EOF
 repository=$VOIDERS_REPO
 EOF
-cat >"$PREFLIGHT_DIR/tlp.conf" <<'EOF'
-# Managed by void-setup-elogind/install.sh.
-TLP_ENABLE=1
-TLP_AUTO_SWITCH=1
-TLP_PROFILE_AC=SAV
-TLP_PROFILE_BAT=SAV
-TLP_PROFILE_DEFAULT=SAV
-EOF
 cat >"$PREFLIGHT_DIR/disable-x11-bell.conf" <<'EOF'
 # Do not keep Xwayland alive solely to provide the legacy X11 bell.
 context.properties = {
@@ -428,14 +420,12 @@ fi
 
 PIPEWIRE_DIR="$USER_HOME/.config/pipewire/pipewire.conf.d"
 require_root_directory_or_absent /etc/xbps.d
-require_root_directory_or_absent /etc/tlp.d
 require_root_directory_or_absent /etc/alsa
 require_root_directory_or_absent /etc/alsa/conf.d
 require_user_directory_or_absent "$USER_HOME/.config"
 require_user_directory_or_absent "$USER_HOME/.config/pipewire"
 require_user_directory_or_absent "$PIPEWIRE_DIR"
 require_root_file_state /etc/xbps.d/10-voiders-community.conf "$PREFLIGHT_DIR/voiders.conf"
-require_root_file_state /etc/tlp.d/99-power-saver.conf "$PREFLIGHT_DIR/tlp.conf"
 require_root_link_state /etc/alsa/conf.d/50-pipewire.conf /usr/share/alsa/alsa.conf.d/50-pipewire.conf
 require_root_link_state /etc/alsa/conf.d/99-pipewire-default.conf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf
 require_user_link_state "$PIPEWIRE_DIR/10-wireplumber.conf" /usr/share/examples/wireplumber/10-wireplumber.conf
@@ -643,13 +633,9 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 enable_service polkitd
 
-# Power management. Keep TLP's power-saver profile active on both AC and
-# battery; the runit service reapplies it at boot and on power-source changes.
+# Power management.
 sudo xbps-install -Sy tlp
-ensure_root_directory /etc/tlp.d
-install_root_file_if_absent /etc/tlp.d/99-power-saver.conf "$PREFLIGHT_DIR/tlp.conf"
 enable_service tlp
-sudo tlp power-saver
 
 # ALSA state and Bluetooth.
 enable_service alsa
