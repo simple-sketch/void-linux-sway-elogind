@@ -19,7 +19,6 @@ if [ "$XBPS_ARCH" != x86_64 ]; then
 fi
 
 DOTFILES_REPO="https://github.com/simple-sketch/dotfiles-stow"
-VOID_PACKAGES_REPO="https://github.com/simple-sketch/void-packages"
 VOIDERS_REPO="https://repo.voiders.dev"
 # Published independently of the repository metadata at:
 # https://codeberg.org/voiders-community/repository
@@ -51,7 +50,6 @@ case "$USER_HOME" in
 esac
 
 DOTFILES_DIR="$USER_HOME/dotfiles-stow"
-VOID_PACKAGES_DIR="$USER_HOME/void-packages"
 SERVICE_START_TIMEOUT=15
 IWD_CONFIG_FILE=${IWD_CONFIG_FILE:-/etc/iwd/main.conf}
 IWD_SWITCH=${IWD_SWITCH:-auto}
@@ -59,7 +57,6 @@ IWD_WAS_ENABLED=false
 WPA_SUPPLICANT_WAS_ENABLED=false
 IWD_ROLLBACK_REQUIRED=false
 USE_EXISTING_DOTFILES=false
-USE_EXISTING_VOID_PACKAGES=false
 
 case "$IWD_SWITCH" in
 auto | force) ;;
@@ -328,8 +325,7 @@ install_user_link_if_absent() {
   fi
 }
 
-read_repo_origin_without_git() {
-  repo_dir=$1
+read_dotfiles_origin_without_git() {
   run_as_user awk "
     BEGIN { in_origin = 0 }
     /^[[:space:]]*\\[/ {
@@ -343,39 +339,15 @@ read_repo_origin_without_git() {
       sub(/^[^=]*=[[:space:]]*/, \"\", value)
       print value
     }
-  " "$repo_dir/.git/config"
+  " "$DOTFILES_DIR/.git/config"
 }
 
-read_repo_origin() {
-  repo_dir=$1
+read_dotfiles_origin() {
   if command -v git >/dev/null 2>&1; then
-    run_as_user git -C "$repo_dir" remote get-url origin
+    run_as_user git -C "$DOTFILES_DIR" remote get-url origin
   else
-    read_repo_origin_without_git "$repo_dir"
+    read_dotfiles_origin_without_git
   fi
-}
-
-validate_user_checkout() {
-  checkout_dir=$1
-  expected_repo=$2
-
-  if [ ! -d "$checkout_dir/.git" ]; then
-    echo "$checkout_dir already exists and is not a Git checkout" >&2
-    exit 1
-  fi
-
-  existing_repo=$(read_repo_origin "$checkout_dir" 2>/dev/null) || {
-    echo "cannot read the origin for $checkout_dir" >&2
-    exit 1
-  }
-
-  case "$existing_repo" in
-  "$expected_repo" | "$expected_repo.git") ;;
-  *)
-    echo "$checkout_dir has an unexpected origin: ${existing_repo:-<missing>}" >&2
-    exit 1
-    ;;
-  esac
 }
 
 cleanup_preflight() {
@@ -398,15 +370,27 @@ context.properties = {
 EOF
 chmod 0644 "$PREFLIGHT_DIR"/*
 
-# Validate existing checkouts without assuming Git has already been installed.
+# Validate an existing checkout without assuming Git has already been installed.
 if [ -e "$DOTFILES_DIR" ] || [ -L "$DOTFILES_DIR" ]; then
-  validate_user_checkout "$DOTFILES_DIR" "$DOTFILES_REPO"
-  USE_EXISTING_DOTFILES=true
-fi
+  if [ ! -d "$DOTFILES_DIR/.git" ]; then
+    echo "$DOTFILES_DIR already exists and is not a Git checkout" >&2
+    exit 1
+  fi
 
-if [ -e "$VOID_PACKAGES_DIR" ] || [ -L "$VOID_PACKAGES_DIR" ]; then
-  validate_user_checkout "$VOID_PACKAGES_DIR" "$VOID_PACKAGES_REPO"
-  USE_EXISTING_VOID_PACKAGES=true
+  EXISTING_REPO=$(read_dotfiles_origin 2>/dev/null) || {
+    echo "cannot read the origin for $DOTFILES_DIR" >&2
+    exit 1
+  }
+
+  case "$EXISTING_REPO" in
+  "$DOTFILES_REPO" | "$DOTFILES_REPO.git")
+    USE_EXISTING_DOTFILES=true
+    ;;
+  *)
+    echo "$DOTFILES_DIR has an unexpected origin: ${EXISTING_REPO:-<missing>}" >&2
+    exit 1
+    ;;
+  esac
 fi
 
 PAM_ELOGIND_PATTERN='^[[:space:]]*-?session[[:space:]]+([^#[:space:]]+|\[[^]]+\])[[:space:]]+([^#[:space:]]*/)?pam_elogind\.so([[:space:]]+[^#]*)?([[:space:]]*#.*)?$'
@@ -615,7 +599,7 @@ run_as_user xdg-user-dirs-update
 sudo xbps-install -y dejavu-fonts-ttf noto-fonts-cjk noto-fonts-emoji noto-fonts-ttf
 
 # Desktop apps and CLI tools, including Git and GNU Stow for the dotfiles step.
-sudo xbps-install -y perl-File-MimeInfo shfmt shellcheck ddcutil kitty swayimg nodejs openjdk25 delta git git-lfs eza bash bash-completion stow neovide shikane alacritty wmenu vim \
+sudo xbps-install -y perl-File-MimeInfo shfmt shellcheck ddcutil kitty swayimg nodejs openjdk25 delta git eza bash bash-completion stow neovide shikane alacritty wmenu vim \
   playerctl libnotify satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
   ffmpeg 7zip unzip zip unrar jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
 
@@ -642,17 +626,6 @@ install_root_link_if_absent /etc/alsa/conf.d/99-pipewire-default.conf /usr/share
 
 # Keep Vim's alternatives on Vim.
 sudo xbps-alternatives -s vim -g vim
-
-echo "==> Preparing local Void package sources for $REAL_USER"
-run_as_user git lfs install
-
-if [ "$USE_EXISTING_VOID_PACKAGES" = true ]; then
-  echo "==> Using existing void-packages checkout: $VOID_PACKAGES_DIR"
-  run_as_user git -C "$VOID_PACKAGES_DIR" submodule update --init --recursive
-else
-  echo "==> Cloning $VOID_PACKAGES_REPO with binary package submodules"
-  run_as_user git clone --recurse-submodules "$VOID_PACKAGES_REPO" "$VOID_PACKAGES_DIR"
-fi
 
 echo "==> Preparing dotfiles for $REAL_USER"
 
@@ -795,4 +768,3 @@ echo "reboot, then log in on tty1 to start Sway"
 echo "check the session with: loginctl session-status"
 echo "check audio with: wpctl status"
 echo "read logs with: svlogtail"
-echo "install a saved local package with: cd $VOID_PACKAGES_DIR && xi <package>"
