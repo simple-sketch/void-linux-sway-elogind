@@ -600,8 +600,7 @@ sudo xbps-install -y dejavu-fonts-ttf noto-fonts-cjk noto-fonts-emoji noto-fonts
 
 # Desktop apps and CLI tools, including Git and GNU Stow for the dotfiles step.
 sudo xbps-install -y perl-File-MimeInfo shfmt shellcheck ddcutil kitty swayimg nodejs openjdk25 delta git eza bash bash-completion stow neovide shikane alacritty wmenu vim \
-  playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel \
-  wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
+  playerctl libnotify satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
   ffmpeg 7zip unzip zip unrar jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
 
 # Audio and Bluetooth; elogind supplies device ACLs instead of an audio group.
