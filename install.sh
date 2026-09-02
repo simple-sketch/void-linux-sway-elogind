@@ -52,10 +52,19 @@ esac
 DOTFILES_DIR="$USER_HOME/dotfiles-stow"
 SERVICE_START_TIMEOUT=15
 IWD_CONFIG_FILE=${IWD_CONFIG_FILE:-/etc/iwd/main.conf}
+IWD_SWITCH=${IWD_SWITCH:-auto}
 IWD_WAS_ENABLED=false
 WPA_SUPPLICANT_WAS_ENABLED=false
 IWD_ROLLBACK_REQUIRED=false
 USE_EXISTING_DOTFILES=false
+
+case "$IWD_SWITCH" in
+auto | force) ;;
+*)
+  echo "invalid IWD_SWITCH value: $IWD_SWITCH (expected auto or force)" >&2
+  exit 1
+  ;;
+esac
 
 command -v sudo >/dev/null 2>&1 || {
   echo "sudo is required" >&2
@@ -102,8 +111,22 @@ enable_service() {
     sudo ln -sfn "$service_source" "$service_target"
   fi
 
-  # `start` explicitly changes a requested-down service to up. Its own timeout
-  # bounds both the request and readiness wait.
+  # runsvdir discovers new links asynchronously. Wait until a supervisor owns
+  # the service before asking sv to start it; otherwise sv can fail immediately
+  # with "unable to open supervise/ok" even though runit starts it moments later.
+  wait_count=0
+  while ! sudo sv status "$service_target" >/dev/null 2>&1; do
+    if [ "$wait_count" -ge "$SERVICE_START_TIMEOUT" ]; then
+      echo "error: runit did not discover $service_name within ${SERVICE_START_TIMEOUT}s" >&2
+      return 1
+    fi
+
+    wait_count=$((wait_count + 1))
+    sleep 1
+  done
+
+  # `start` also clears a requested-down state and uses the package's check
+  # script, when present, to verify readiness.
   if ! sudo sv -w "$SERVICE_START_TIMEOUT" start "$service_target"; then
     sudo sv status "$service_target" >&2 || true
     echo "error: $service_name did not become ready within ${SERVICE_START_TIMEOUT}s" >&2
@@ -118,6 +141,14 @@ service_is_enabled() {
   [ -e "/var/service/$service_name" ] || [ -L "/var/service/$service_name" ]
 }
 
+warn_dangling_service_links() {
+  for service_link in /var/service/*; do
+    [ -L "$service_link" ] || continue
+    [ -e "$service_link" ] && continue
+    echo "warning: dangling runit service link: $service_link -> $(readlink "$service_link")" >&2
+  done
+}
+
 restore_wireless_on_exit() {
   exit_status=$?
   trap - EXIT
@@ -126,7 +157,7 @@ restore_wireless_on_exit() {
     echo "iwd setup failed; restoring the previous wireless service" >&2
 
     if [ "$IWD_WAS_ENABLED" = false ]; then
-      sudo sv down iwd >/dev/null 2>&1 || true
+      sudo sv -w "$SERVICE_START_TIMEOUT" stop /var/service/iwd >/dev/null 2>&1 || true
       if [ -L /var/service/iwd ]; then
         sudo rm -f /var/service/iwd ||
           echo "warning: could not remove the iwd service link" >&2
@@ -134,12 +165,8 @@ restore_wireless_on_exit() {
     fi
 
     if [ "$WPA_SUPPLICANT_WAS_ENABLED" = true ]; then
-      if sudo ln -sfn /etc/sv/wpa_supplicant /var/service/wpa_supplicant; then
-        sudo sv up wpa_supplicant >/dev/null 2>&1 ||
-          echo "warning: restored wpa_supplicant but could not start it" >&2
-      else
-        echo "warning: could not restore the wpa_supplicant service link" >&2
-      fi
+      enable_service wpa_supplicant >/dev/null 2>&1 ||
+        echo "warning: could not restore and start wpa_supplicant" >&2
     fi
   fi
 
@@ -367,12 +394,22 @@ if [ -e "$DOTFILES_DIR" ] || [ -L "$DOTFILES_DIR" ]; then
 fi
 
 PAM_ELOGIND_PATTERN='^[[:space:]]*-?session[[:space:]]+([^#[:space:]]+|\[[^]]+\])[[:space:]]+([^#[:space:]]*/)?pam_elogind\.so([[:space:]]+[^#]*)?([[:space:]]*#.*)?$'
-if ! sudo test -f /etc/pam.d/system-login ||
-  ! sudo grep -Eq "$PAM_ELOGIND_PATTERN" /etc/pam.d/system-login; then
-  echo "error: an active pam_elogind.so session line is missing from /etc/pam.d/system-login" >&2
-  echo "add '-session optional pam_elogind.so', then rerun the installer" >&2
-  exit 1
-fi
+
+for syslog_service in rsyslogd syslog-ng metalog; do
+  if service_is_enabled "$syslog_service"; then
+    echo "$syslog_service is enabled and conflicts with socklog" >&2
+    echo "disable it before running this installer" >&2
+    exit 1
+  fi
+done
+
+for session_manager in seatd turnstiled; do
+  if service_is_enabled "$session_manager"; then
+    echo "$session_manager is enabled and conflicts with this elogind-only setup" >&2
+    echo "disable it before running this installer" >&2
+    exit 1
+  fi
+done
 
 for network_manager in NetworkManager connmand wicd; do
   if service_is_enabled "$network_manager"; then
@@ -382,7 +419,13 @@ for network_manager in NetworkManager connmand wicd; do
   fi
 done
 
-if service_is_enabled wpa_supplicant && [ ! -L /var/service/wpa_supplicant ]; then
+if service_is_enabled iwd && service_is_enabled wpa_supplicant; then
+  echo "iwd and wpa_supplicant are both enabled; disable one before continuing" >&2
+  exit 1
+fi
+
+if [ "$IWD_SWITCH" = force ] && service_is_enabled wpa_supplicant &&
+  [ ! -L /var/service/wpa_supplicant ]; then
   echo "cannot switch wireless: /var/service/wpa_supplicant is not a removable symlink" >&2
   exit 1
 fi
@@ -497,26 +540,90 @@ sudo xbps-install -Syu
 sudo xbps-install -Sy void-repo-nonfree void-repo-multilib void-repo-multilib-nonfree
 sudo xbps-install -Syu
 
+echo "==> Installing and starting logging and session services"
+
+# Configure the session stack before the large desktop transaction or Stow can
+# fail. This leaves a rerunnable partial installation with D-Bus and elogind
+# working instead of merely installed.
+sudo xbps-install -y socklog-void dbus elogind polkit
+sudo usermod -aG socklog "$REAL_USER"
+sudo usermod -aG video "$REAL_USER"
+
+LOGGING_SERVICES_OK=true
+if ! enable_service socklog-unix; then
+  LOGGING_SERVICES_OK=false
+fi
+if ! enable_service nanoklogd; then
+  LOGGING_SERVICES_OK=false
+fi
+
+# D-Bus must be ready before elogind; polkit uses the same system bus.
+enable_service dbus
+enable_service elogind
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+enable_service polkitd
+
+if ! sudo test -r /usr/lib/security/pam_elogind.so ||
+  ! sudo test -f /etc/pam.d/system-login ||
+  ! sudo grep -Eq "$PAM_ELOGIND_PATTERN" /etc/pam.d/system-login; then
+  echo "error: elogind is installed, but its PAM session setup is incomplete" >&2
+  echo "restore the pam-base line '-session optional pam_elogind.so', then rerun" >&2
+  exit 1
+fi
+
+if ! sudo dbus-send --system --print-reply \
+  --dest=org.freedesktop.login1 /org/freedesktop/login1 \
+  org.freedesktop.DBus.Peer.Ping >/dev/null; then
+  echo "error: elogind is not responding on the system D-Bus" >&2
+  exit 1
+fi
+
+if [ "$LOGGING_SERVICES_OK" = false ]; then
+  echo "error: one or more socklog services failed to start" >&2
+  exit 1
+fi
+
 echo "==> Installing graphics, Sway, Noctalia, apps, and CLI tools"
 
+# Repository indexes were synchronized above; avoid another network index sync
+# for every package group.
 # Intel graphics.
-sudo xbps-install -Sy linux-firmware-intel mesa-dri vulkan-loader mesa-vulkan-intel intel-video-accel intel-media-driver
+sudo xbps-install -y linux-firmware-intel mesa-dri vulkan-loader mesa-vulkan-intel intel-video-accel intel-media-driver
 
 # Portals and user directories.
-sudo xbps-install -Sy xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk xdg-utils xdg-user-dirs xdg-user-dirs-gtk
+sudo xbps-install -y xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk xdg-utils xdg-user-dirs xdg-user-dirs-gtk
 run_as_user xdg-user-dirs-update
 
 # Fonts.
-sudo xbps-install -Sy dejavu-fonts-ttf noto-fonts-cjk noto-fonts-emoji noto-fonts-ttf
+sudo xbps-install -y dejavu-fonts-ttf noto-fonts-cjk noto-fonts-emoji noto-fonts-ttf
 
 # Desktop apps and CLI tools, including Git and GNU Stow for the dotfiles step.
-sudo xbps-install -Sy perl-File-MimeInfo shfmt shellcheck ddcutil kitty swayimg nodejs openjdk25 delta git eza bash-completion stow neovide shikane alacritty wmenu vim \
+sudo xbps-install -y perl-File-MimeInfo shfmt shellcheck ddcutil kitty swayimg nodejs openjdk25 delta git eza bash bash-completion stow neovide shikane alacritty wmenu vim \
   playerctl libnotify grim slurp grimshot satty flameshot btop fastfetch brightnessctl base-devel \
   wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
   ffmpeg 7zip unzip zip unrar jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
 
 # Audio and Bluetooth; elogind supplies device ACLs instead of an audio group.
-sudo xbps-install -Sy bluez alsa-utils alsa-pipewire libjack-pipewire libspa-bluetooth pipewire wireplumber wireplumber-elogind
+sudo xbps-install -y bluez alsa-utils alsa-pipewire libjack-pipewire libspa-bluetooth pipewire wireplumber wireplumber-elogind
+
+# Install and configure the remaining system services before touching user
+# dotfiles. Install iwd while the existing network connection is still intact.
+echo "==> Configuring hardware, power, and network prerequisites"
+sudo xbps-install -y tlp iwd dhcpcd
+
+enable_service tlp
+enable_service alsa
+sudo usermod -aG bluetooth "$REAL_USER"
+sudo rfkill unblock bluetooth || true
+enable_service bluetoothd
+enable_service dhcpcd
+
+# Route ALSA clients through PipeWire without replacing existing state.
+ensure_root_directory /etc/alsa
+ensure_root_directory /etc/alsa/conf.d
+install_root_link_if_absent /etc/alsa/conf.d/50-pipewire.conf /usr/share/alsa/alsa.conf.d/50-pipewire.conf
+install_root_link_if_absent /etc/alsa/conf.d/99-pipewire-default.conf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf
 
 # Keep Vim's alternatives on Vim.
 sudo xbps-alternatives -s vim -g vim
@@ -615,74 +722,47 @@ if [ ! -x "$AUDIO_START" ]; then
   echo "warning: $AUDIO_START is missing or not executable" >&2
 fi
 
-echo "==> Configuring system services"
-
-# Logging and session services.
-sudo xbps-install -Sy socklog-void dbus elogind polkit
-
-enable_service socklog-unix
-enable_service nanoklogd
-sudo usermod -aG socklog "$REAL_USER"
-
-# D-Bus must start before elogind.
-enable_service dbus
-enable_service elogind
-sudo usermod -aG video "$REAL_USER"
-
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-enable_service polkitd
-
-# Power management.
-sudo xbps-install -Sy tlp
-enable_service tlp
-
-# ALSA state and Bluetooth.
-enable_service alsa
-sudo usermod -aG bluetooth "$REAL_USER"
-sudo rfkill unblock bluetooth || true
-enable_service bluetoothd
-
-# Route ALSA clients through PipeWire without replacing existing state.
-ensure_root_directory /etc/alsa
-ensure_root_directory /etc/alsa/conf.d
-install_root_link_if_absent /etc/alsa/conf.d/50-pipewire.conf /usr/share/alsa/alsa.conf.d/50-pipewire.conf
-install_root_link_if_absent /etc/alsa/conf.d/99-pipewire-default.conf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf
-
 # Managed-content templates are no longer needed. Remove them before replacing
 # the cleanup trap with the wireless rollback trap.
 cleanup_preflight
 trap - EXIT
 
-echo "==> Replacing wpa_supplicant with iwd"
+echo "==> Configuring the wireless service"
 
-# Install and prove DHCP readiness before touching the current wireless daemon.
-sudo xbps-install -Sy iwd dhcpcd
-enable_service dhcpcd
+if service_is_enabled wpa_supplicant && [ "$IWD_SWITCH" = auto ]; then
+  echo "wpa_supplicant is enabled; keeping it active so this installer does not drop Wi-Fi."
+  echo "iwd is installed but not enabled. See README.md for the safe migration steps."
+else
+  [ -d /var/service/iwd ] && IWD_WAS_ENABLED=true
+  [ -d /var/service/wpa_supplicant ] && WPA_SUPPLICANT_WAS_ENABLED=true
+  IWD_ROLLBACK_REQUIRED=true
+  trap restore_wireless_on_exit EXIT
 
-[ -d /var/service/iwd ] && IWD_WAS_ENABLED=true
-[ -d /var/service/wpa_supplicant ] && WPA_SUPPLICANT_WAS_ENABLED=true
-IWD_ROLLBACK_REQUIRED=true
-trap restore_wireless_on_exit EXIT
+  if service_is_enabled wpa_supplicant; then
+    echo "warning: forcing the Wi-Fi switch; connectivity may drop until iwd is configured" >&2
+    if ! sudo sv -w "$SERVICE_START_TIMEOUT" stop /var/service/wpa_supplicant; then
+      echo "error: wpa_supplicant did not stop; keeping its service enabled" >&2
+      exit 1
+    fi
+    sudo rm -f /var/service/wpa_supplicant
+  fi
 
-if service_is_enabled wpa_supplicant; then
-  sudo sv down wpa_supplicant || true
-  sudo rm -f /var/service/wpa_supplicant
+  if ! enable_service iwd; then
+    echo "error: iwd did not become ready" >&2
+    exit 1
+  fi
+
+  sudo sv status /var/service/iwd
+  sudo sv status /var/service/dhcpcd
+
+  IWD_ROLLBACK_REQUIRED=false
+  trap - EXIT
+
+  echo "iwd is enabled. List adapters with: sudo iwctl device list"
+  echo "Connect with: sudo iwctl station <device> connect <SSID>"
 fi
 
-if ! enable_service iwd; then
-  echo "error: iwd did not become ready" >&2
-  exit 1
-fi
-
-sudo sv status /var/service/iwd
-sudo sv status /var/service/dhcpcd
-
-IWD_ROLLBACK_REQUIRED=false
-trap - EXIT
-
-echo "iwd is enabled. List adapters with: sudo iwctl device list"
-echo "Connect with: sudo iwctl station <device> connect <SSID>"
+warn_dangling_service_links
 
 echo "setup complete"
 echo "reboot, then log in on tty1 to start Sway"
