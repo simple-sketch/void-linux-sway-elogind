@@ -1,0 +1,2 @@
+# Normalize text in the repository and keep Unix working-tree line endings.
+* text=auto eol=lf
