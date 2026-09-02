@@ -7,7 +7,9 @@ it enables multilib repositories and installs Intel graphics packages.
 The desktop configuration lives in
 [dotfiles-stow](https://github.com/simple-sketch/dotfiles-stow). The installer
 clones that repository to `~/dotfiles-stow` and uses GNU Stow to symlink its
-packages into the home directory.
+packages into the home directory. It also installs Git LFS and `xtools`, then
+clones [void-packages](https://github.com/simple-sketch/void-packages) with its
+compiled-package submodule to `~/void-packages`.
 
 ## Prerequisites
 
@@ -66,6 +68,20 @@ wpctl status
 
 Group changes for `socklog`, `video`, and `bluetooth` take effect at the next
 login. The installer also warns about dangling links under `/var/service`.
+
+## Local Void packages
+
+Compiled packages are stored by the `void-packages` checkout in its
+`hostdir/binpkgs` submodule. Install one with `xi` from inside the checkout:
+
+```sh
+cd ~/void-packages
+xi yazi
+```
+
+The stowed `~/.config/xbps-src.conf` preserves an existing binary when its
+version and revision have not changed. Bump `revision` or pass `-f` when a
+rebuild is intentional.
 
 ## Optional installs
 
