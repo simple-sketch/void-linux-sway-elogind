@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Install an Intel Sway/Noctalia desktop with elogind and multimedia support,
+# Install an Intel Sway/Noctalia desktop with elogind, multimedia, and iwd,
 # then clone and stow the matching user configuration. Keep this installer
 # self-contained so it does not depend on another script's name or location.
 # Do not combine this setup with seatd or turnstile.
@@ -51,7 +51,19 @@ esac
 
 DOTFILES_DIR="$USER_HOME/dotfiles-stow"
 SERVICE_START_TIMEOUT=15
+IWD_SWITCH=${IWD_SWITCH:-auto}
+IWD_WAS_ENABLED=false
+WPA_SUPPLICANT_WAS_ENABLED=false
+IWD_ROLLBACK_REQUIRED=false
 USE_EXISTING_DOTFILES=false
+
+case "$IWD_SWITCH" in
+auto | force) ;;
+*)
+  echo "invalid IWD_SWITCH value: $IWD_SWITCH (expected auto or force)" >&2
+  exit 1
+  ;;
+esac
 
 command -v sudo >/dev/null 2>&1 || {
   echo "sudo is required" >&2
@@ -134,6 +146,30 @@ warn_dangling_service_links() {
     [ -e "$service_link" ] && continue
     echo "warning: dangling runit service link: $service_link -> $(readlink "$service_link")" >&2
   done
+}
+
+restore_wireless_on_exit() {
+  exit_status=$?
+  trap - EXIT
+
+  if [ "$IWD_ROLLBACK_REQUIRED" = true ]; then
+    echo "iwd setup failed; restoring the previous wireless service" >&2
+
+    if [ "$IWD_WAS_ENABLED" = false ]; then
+      sudo sv -w "$SERVICE_START_TIMEOUT" stop /var/service/iwd >/dev/null 2>&1 || true
+      if [ -L /var/service/iwd ]; then
+        sudo rm -f /var/service/iwd ||
+          echo "warning: could not remove the iwd service link" >&2
+      fi
+    fi
+
+    if [ "$WPA_SUPPLICANT_WAS_ENABLED" = true ]; then
+      enable_service wpa_supplicant >/dev/null 2>&1 ||
+        echo "warning: could not restore and start wpa_supplicant" >&2
+    fi
+  fi
+
+  exit "$exit_status"
 }
 
 root_path_exists() {
@@ -374,6 +410,37 @@ for session_manager in seatd turnstiled; do
   fi
 done
 
+for network_manager in NetworkManager connmand wicd; do
+  if service_is_enabled "$network_manager"; then
+    echo "$network_manager is enabled and conflicts with standalone iwd" >&2
+    echo "disable it first: sudo rm /var/service/$network_manager" >&2
+    exit 1
+  fi
+done
+
+if service_is_enabled iwd && service_is_enabled wpa_supplicant; then
+  echo "iwd and wpa_supplicant are both enabled; disable one before continuing" >&2
+  exit 1
+fi
+
+if [ "$IWD_SWITCH" = force ] && service_is_enabled wpa_supplicant &&
+  [ ! -L /var/service/wpa_supplicant ]; then
+  echo "cannot switch wireless: /var/service/wpa_supplicant is not a removable symlink" >&2
+  exit 1
+fi
+
+if service_is_enabled iwd; then
+  if [ -L /var/service/iwd ]; then
+    if [ "$(readlink /var/service/iwd)" != /etc/sv/iwd ]; then
+      echo "cannot enable iwd: /var/service/iwd does not link to /etc/sv/iwd" >&2
+      exit 1
+    fi
+  elif [ ! -d /var/service/iwd ]; then
+    echo "cannot enable iwd: /var/service/iwd is not a service directory" >&2
+    exit 1
+  fi
+fi
+
 PIPEWIRE_DIR="$USER_HOME/.config/pipewire/pipewire.conf.d"
 require_root_directory_or_absent /etc/xbps.d
 require_root_directory_or_absent /etc/alsa
@@ -525,9 +592,9 @@ run_as_user git lfs install --skip-repo
 sudo xbps-install -y bluez alsa-utils alsa-pipewire libjack-pipewire libspa-bluetooth pipewire wireplumber wireplumber-elogind
 
 # Install and configure the remaining system services before touching user
-# dotfiles.
-echo "==> Configuring hardware and power prerequisites"
-sudo xbps-install -y tlp
+# dotfiles. Install iwd while the existing network connection is still intact.
+echo "==> Configuring hardware, power, and network prerequisites"
+sudo xbps-install -y tlp iwd
 
 enable_service tlp
 enable_service alsa
@@ -638,9 +705,44 @@ if [ ! -x "$AUDIO_START" ]; then
   echo "warning: $AUDIO_START is missing or not executable" >&2
 fi
 
-# Managed-content templates are no longer needed.
+# Managed-content templates are no longer needed. Remove them before replacing
+# the cleanup trap with the wireless rollback trap.
 cleanup_preflight
 trap - EXIT
+
+echo "==> Configuring the wireless service"
+
+if service_is_enabled wpa_supplicant && [ "$IWD_SWITCH" = auto ]; then
+  echo "wpa_supplicant is enabled; keeping it active so this installer does not drop Wi-Fi."
+  echo "iwd is installed but not enabled. See README.md for the safe migration steps."
+else
+  [ -d /var/service/iwd ] && IWD_WAS_ENABLED=true
+  [ -d /var/service/wpa_supplicant ] && WPA_SUPPLICANT_WAS_ENABLED=true
+  IWD_ROLLBACK_REQUIRED=true
+  trap restore_wireless_on_exit EXIT
+
+  if service_is_enabled wpa_supplicant; then
+    echo "warning: forcing the Wi-Fi switch; connectivity may drop until iwd is configured" >&2
+    if ! sudo sv -w "$SERVICE_START_TIMEOUT" stop /var/service/wpa_supplicant; then
+      echo "error: wpa_supplicant did not stop; keeping its service enabled" >&2
+      exit 1
+    fi
+    sudo rm -f /var/service/wpa_supplicant
+  fi
+
+  if ! enable_service iwd; then
+    echo "error: iwd did not become ready" >&2
+    exit 1
+  fi
+
+  sudo sv status /var/service/iwd
+
+  IWD_ROLLBACK_REQUIRED=false
+  trap - EXIT
+
+  echo "iwd is enabled. List adapters with: sudo iwctl device list"
+  echo "Connect with: sudo iwctl station <device> connect <SSID>"
+fi
 
 warn_dangling_service_links
 
