@@ -51,7 +51,6 @@ esac
 
 DOTFILES_DIR="$USER_HOME/dotfiles-stow"
 SERVICE_START_TIMEOUT=15
-IWD_CONFIG_FILE=${IWD_CONFIG_FILE:-/etc/iwd/main.conf}
 IWD_SWITCH=${IWD_SWITCH:-auto}
 IWD_WAS_ENABLED=false
 WPA_SUPPLICANT_WAS_ENABLED=false
@@ -442,25 +441,6 @@ if service_is_enabled iwd; then
   fi
 fi
 
-if sudo test -e "$IWD_CONFIG_FILE" || sudo test -L "$IWD_CONFIG_FILE"; then
-  if ! sudo test -f "$IWD_CONFIG_FILE" || ! sudo test -r "$IWD_CONFIG_FILE"; then
-    echo "cannot inspect iwd configuration as root: $IWD_CONFIG_FILE" >&2
-    exit 1
-  fi
-
-  if sudo grep -Eiq '^[[:space:]]*EnableNetworkConfiguration[[:space:]]*=[[:space:]]*true([[:space:]]|$)' "$IWD_CONFIG_FILE"; then
-    echo "cannot combine dhcpcd with EnableNetworkConfiguration=true in $IWD_CONFIG_FILE" >&2
-    echo "disable iwd network configuration before running this script" >&2
-    exit 1
-  else
-    grep_status=$?
-    if [ "$grep_status" -ne 1 ]; then
-      echo "cannot inspect iwd configuration as root: $IWD_CONFIG_FILE" >&2
-      exit 1
-    fi
-  fi
-fi
-
 PIPEWIRE_DIR="$USER_HOME/.config/pipewire/pipewire.conf.d"
 require_root_directory_or_absent /etc/xbps.d
 require_root_directory_or_absent /etc/alsa
@@ -614,14 +594,13 @@ sudo xbps-install -y bluez alsa-utils alsa-pipewire libjack-pipewire libspa-blue
 # Install and configure the remaining system services before touching user
 # dotfiles. Install iwd while the existing network connection is still intact.
 echo "==> Configuring hardware, power, and network prerequisites"
-sudo xbps-install -y tlp iwd dhcpcd
+sudo xbps-install -y tlp iwd
 
 enable_service tlp
 enable_service alsa
 sudo usermod -aG bluetooth "$REAL_USER"
 sudo rfkill unblock bluetooth || true
 enable_service bluetoothd
-enable_service dhcpcd
 
 # Route ALSA clients through PipeWire without replacing existing state.
 ensure_root_directory /etc/alsa
@@ -757,7 +736,6 @@ else
   fi
 
   sudo sv status /var/service/iwd
-  sudo sv status /var/service/dhcpcd
 
   IWD_ROLLBACK_REQUIRED=false
   trap - EXIT
