@@ -56,6 +56,9 @@ IWD_WAS_ENABLED=false
 WPA_SUPPLICANT_WAS_ENABLED=false
 IWD_ROLLBACK_REQUIRED=false
 USE_EXISTING_DOTFILES=false
+DOTFILES_ROLLBACK_REQUIRED=false
+BACKUP_DIR=
+PREFLIGHT_DIR=
 
 case "$IWD_SWITCH" in
 auto | force) ;;
@@ -148,10 +151,7 @@ warn_dangling_service_links() {
   done
 }
 
-restore_wireless_on_exit() {
-  exit_status=$?
-  trap - EXIT
-
+restore_wireless() {
   if [ "$IWD_ROLLBACK_REQUIRED" = true ]; then
     echo "iwd setup failed; restoring the previous wireless service" >&2
 
@@ -168,8 +168,6 @@ restore_wireless_on_exit() {
         echo "warning: could not restore and start wpa_supplicant" >&2
     fi
   fi
-
-  exit "$exit_status"
 }
 
 root_path_exists() {
@@ -265,6 +263,7 @@ ensure_root_directory() {
 
   if ! sudo mkdir -m 0755 "$managed_directory"; then
     require_root_directory_or_absent "$managed_directory"
+    root_path_exists "$managed_directory" || return 1
   fi
 }
 
@@ -275,6 +274,7 @@ ensure_user_directory() {
 
   if ! run_as_user mkdir -m 0755 "$managed_directory"; then
     require_user_directory_or_absent "$managed_directory"
+    user_path_exists "$managed_directory" || return 1
   fi
 }
 
@@ -286,6 +286,7 @@ install_root_file_if_absent() {
 
   if ! sudo sh -c 'set -C; umask 022; cat "$1" >"$2"' sh "$expected_file" "$managed_path"; then
     require_root_file_state "$managed_path" "$expected_file"
+    root_path_exists "$managed_path" || return 1
   fi
 }
 
@@ -299,6 +300,7 @@ install_user_file_if_absent() {
   # shellcheck disable=SC2016
   if ! run_as_user sh -c 'set -C; umask 022; cat "$1" >"$2"' sh "$expected_file" "$managed_path"; then
     require_user_file_state "$managed_path" "$expected_file"
+    user_path_exists "$managed_path" || return 1
   fi
 }
 
@@ -310,6 +312,7 @@ install_root_link_if_absent() {
 
   if ! sudo ln -s "$expected_target" "$managed_path"; then
     require_root_link_state "$managed_path" "$expected_target"
+    root_path_exists "$managed_path" || return 1
   fi
 }
 
@@ -321,6 +324,7 @@ install_user_link_if_absent() {
 
   if ! run_as_user ln -s "$expected_target" "$managed_path"; then
     require_user_link_state "$managed_path" "$expected_target"
+    user_path_exists "$managed_path" || return 1
   fi
 }
 
@@ -349,14 +353,70 @@ read_dotfiles_origin() {
   fi
 }
 
-cleanup_preflight() {
-  rm -rf "$PREFLIGHT_DIR"
+restore_dotfile_backup() {
+  backup_path="$BACKUP_DIR/$1"
+  restore_path="$USER_HOME/$1"
+
+  run_as_user test -f "$backup_path" || return 0
+
+  # A failed or interrupted Stow run may already have linked this file. Only
+  # remove links into its package tree; preserve unrelated replacement files.
+  if run_as_user test -L "$restore_path"; then
+    restore_link=$(run_as_user readlink -f "$restore_path") || return 1
+    restore_repo=$(run_as_user readlink -f "$DOTFILES_DIR") || return 1
+    case "$restore_link" in
+    "$restore_repo/"*/"$1")
+      run_as_user rm -- "$restore_path" || return 1
+      ;;
+    *) return 1 ;;
+    esac
+  fi
+
+  # GNU mv's no-clobber/no-target-directory options also protect a destination
+  # created during rollback. A skipped move leaves the backup for manual repair.
+  run_as_user mv -nT -- "$backup_path" "$restore_path" || return 1
+  ! user_path_exists "$backup_path"
 }
+
+restore_dotfiles() {
+  if [ "$DOTFILES_ROLLBACK_REQUIRED" = true ] && [ -n "$BACKUP_DIR" ]; then
+    echo "dotfiles setup failed; restoring files moved into $BACKUP_DIR" >&2
+    for backup_name in .bashrc .bash_profile .inputrc .vimrc; do
+      restore_dotfile_backup "$backup_name" ||
+        echo "warning: could not restore $USER_HOME/$backup_name; backup retained at $BACKUP_DIR/$backup_name" >&2
+    done
+  fi
+}
+
+cleanup_preflight() {
+  if [ -n "$PREFLIGHT_DIR" ]; then
+    rm -rf -- "$PREFLIGHT_DIR" || return 1
+    PREFLIGHT_DIR=
+  fi
+}
+
+cleanup_on_exit() {
+  exit_status=$?
+  trap - EXIT
+  # Do not let a second interrupt abandon rollback halfway through.
+  trap '' HUP INT TERM
+
+  restore_dotfiles || echo "warning: dotfiles rollback failed" >&2
+  restore_wireless || echo "warning: wireless rollback failed" >&2
+  cleanup_preflight || echo "warning: could not remove preflight directory $PREFLIGHT_DIR" >&2
+  exit "$exit_status"
+}
+
+# dash does not run EXIT traps for unhandled signals. Route them through exit
+# and keep one cleanup handler installed throughout every setup phase.
+trap cleanup_on_exit EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Materialize exact managed content for non-mutating collision checks.
 PREFLIGHT_DIR=$(mktemp -d)
 chmod 0755 "$PREFLIGHT_DIR"
-trap cleanup_preflight EXIT
 
 cat >"$PREFLIGHT_DIR/voiders.conf" <<EOF
 repository=$VOIDERS_REPO
@@ -568,8 +628,8 @@ echo "==> Installing graphics, Sway, Noctalia, apps, and CLI tools"
 
 # Repository indexes were synchronized above; avoid another network index sync
 # for every package group.
-# Intel graphics.
-sudo xbps-install -y linux-firmware-intel mesa-dri vulkan-loader mesa-vulkan-intel intel-video-accel intel-media-driver
+# Intel graphics; intel-video-accel also installs intel-media-driver.
+sudo xbps-install -y linux-firmware-intel mesa-dri vulkan-loader mesa-vulkan-intel intel-video-accel
 
 # Portals and user directories.
 sudo xbps-install -y xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk xdg-utils xdg-user-dirs xdg-user-dirs-gtk
@@ -630,8 +690,9 @@ run_as_user mkdir -p \
   "$USER_HOME/Pictures/Wallpapers"
 
 # Back up files from /etc/skel that would otherwise conflict with Stow. A
-# unique directory prevents reruns from overwriting an earlier backup.
-BACKUP_DIR=
+# unique directory prevents reruns from overwriting an earlier backup. Keep
+# rollback armed until Stow succeeds, including failures during these moves.
+DOTFILES_ROLLBACK_REQUIRED=true
 
 for name in .bashrc .bash_profile .inputrc .vimrc; do
   target="$USER_HOME/$name"
@@ -693,6 +754,7 @@ run_as_user stow --simulate --verbose=2 --dir="$DOTFILES_DIR" --target="$USER_HO
 
 echo "==> Stowing dotfiles into $USER_HOME"
 run_as_user stow --dir="$DOTFILES_DIR" --target="$USER_HOME" "$@"
+DOTFILES_ROLLBACK_REQUIRED=false
 
 SWAY_CONFIG="$USER_HOME/.config/sway/config"
 AUDIO_START="$USER_HOME/.config/sway/scripts/start-audio.sh"
@@ -705,10 +767,9 @@ if [ ! -x "$AUDIO_START" ]; then
   echo "warning: $AUDIO_START is missing or not executable" >&2
 fi
 
-# Managed-content templates are no longer needed. Remove them before replacing
-# the cleanup trap with the wireless rollback trap.
+# Managed-content templates are no longer needed. Keep the shared cleanup
+# handler installed for the wireless handoff and any signals during it.
 cleanup_preflight
-trap - EXIT
 
 echo "==> Configuring the wireless service"
 
@@ -719,7 +780,6 @@ else
   [ -d /var/service/iwd ] && IWD_WAS_ENABLED=true
   [ -d /var/service/wpa_supplicant ] && WPA_SUPPLICANT_WAS_ENABLED=true
   IWD_ROLLBACK_REQUIRED=true
-  trap restore_wireless_on_exit EXIT
 
   if service_is_enabled wpa_supplicant; then
     echo "warning: forcing the Wi-Fi switch; connectivity may drop until iwd is configured" >&2
@@ -738,7 +798,6 @@ else
   sudo sv status /var/service/iwd
 
   IWD_ROLLBACK_REQUIRED=false
-  trap - EXIT
 
   echo "iwd is enabled. List adapters with: sudo iwctl device list"
   echo "Connect with: sudo iwctl station <device> connect <SSID>"
