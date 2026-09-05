@@ -638,6 +638,10 @@ run_as_user xdg-user-dirs-update
 # Fonts.
 sudo xbps-install -y dejavu-fonts-ttf noto-fonts-cjk noto-fonts-emoji noto-fonts-ttf
 
+# Runtime for the Super+title-bar workspace selector in the Sway dotfiles.
+# GTK pulls in the GLib/Gdk/Pango typelibs; no build or GUI-test tools are needed.
+sudo xbps-install -y python3 python3-gobject python3-cairo gtk+3
+
 # Desktop apps and CLI tools, including Git and GNU Stow for the dotfiles step.
 sudo xbps-install -y perl-File-MimeInfo shfmt shellcheck ddcutil kitty swayimg nodejs openjdk25 delta git git-lfs eza bash bash-completion stow neovide shikane alacritty wmenu vim \
   playerctl libnotify satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
