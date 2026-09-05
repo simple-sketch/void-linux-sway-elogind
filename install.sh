@@ -581,7 +581,7 @@ sudo xbps-install -y dejavu-fonts-ttf noto-fonts-cjk noto-fonts-emoji noto-fonts
 # Desktop apps and CLI tools, including Git and GNU Stow for the dotfiles step.
 sudo xbps-install -y perl-File-MimeInfo shfmt shellcheck ddcutil kitty swayimg nodejs openjdk25 delta git git-lfs eza bash bash-completion stow neovide shikane alacritty wmenu vim \
   playerctl libnotify satty flameshot btop fastfetch brightnessctl base-devel wl-clipboard sway foot firefox vlc xtools vsv lazygit neovim ghostty rsync yazi bat upower \
-  ffmpeg 7zip unzip zip unrar jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
+  ffmpeg 7zip unzip zip unrar ouch jq poppler fd ripgrep fzf zoxide resvg ImageMagick noctalia bibata-modern-ice
 
 # Configure Git LFS globally for the real user so future clones fetch LFS
 # objects without modifying this installer checkout's hooks.
